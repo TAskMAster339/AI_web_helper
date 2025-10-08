@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+echo "🚀 Linting and formatting files before commit..."
 npx lint-staged
+echo "✅ Linting and formatting finished."
