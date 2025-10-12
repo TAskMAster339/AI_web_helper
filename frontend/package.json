@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint . --fix",
+    "type-check": "npx tsc --build tsconfig.app.json tsconfig.node.json --noEmit",
+    "type-check:app": "tsc --noEmit --strict --noUnusedLocals --noUnusedParameters --project tsconfig.app.json",
+    "type-check:node": "tsc --noEmit --strict --noUnusedLocals --noUnusedParameters --project tsconfig.node.json",
     "format": "prettier --write .",
-    "preview": "vite preview",
-    "prepare": "husky"
+    "preview": "vite preview"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
@@ -20,7 +22,8 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
@@ -36,7 +39,6 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
     "globals": "^16.4.0",
-    "husky": "^9.1.7",
     "lint-staged": "^16.2.3",
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.14",

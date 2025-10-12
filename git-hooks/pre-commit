@@ -36,6 +36,16 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+echo "📘 Running TypeScript type check..."
+npx tsc --build tsconfig.app.json tsconfig.node.json --noEmit
+TSC_EXIT=$?
+if [ $TSC_EXIT -ne 0 ]; then
+    echo "❌ TypeScript type check failed!"
+    echo "💡 Please fix the type errors above before committing."
+    cd - > /dev/null
+    exit 1
+fi
+
 cd - > /dev/null
 git add $(echo "$STAGED_FILES" | sed "s|^|$FRONTEND_DIR/|")
 
