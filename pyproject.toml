@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=65.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Backend service for a fullstack application"
+requires-python = ">=3.13"
+authors = [{ name = "TAskMAster339", email = "dimagr3214@gmail.com" }]
+readme = "README.md"
+
+# === БАЗОВЫЕ ЗАВИСИМОСТИ Django проекта ===
+dependencies = [
+  "Django==5.2.7",
+  "django-cors-headers==4.9.0",
+  "djangorestframework==3.16.1",
+  "djangorestframework-simplejwt==5.5.1",
+  "psycopg2-binary==2.9.11",
+  "python-decouple==3.8",
+]
+[project.optional-dependencies]
+dev = ["ruff"]
+
+# --- ЛИНТИНГ И ФОРМАТИРОВАНИЕ (RUFF) ---
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = [
+  ".git",
+  ".ruff_cache",
+  ".venv",
+  "__pycache__",
+  "migrations",
+  "node_modules",
+  "build",
+  "dist",
+]
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+select = [
+  "A",
+  "B",
+  "C4",
+  "C90",
+  "COM",
+  "DTZ",
+  "E",
+  "ERA",
+  "EXE",
+  "F",
+  "FBT",
+  "FLY",
+  "FURB",
+  "G",
+  "I",
+  "ICN",
+  "ISC",
+  "LOG",
+  "N",
+  "PERF",
+  "PIE",
+  "PL",
+  "PT",
+  "PTH",
+  "Q",
+  "RET",
+  "RSE",
+  "RUF",
+  "S",
+  "SIM",
+  "SLF",
+  "SLOT",
+  "T100",
+  "TRY",
+  "UP",
+  "W",
+  "YTT",
+]
+
+ignore = ["E501", "B008", "PLR0913"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
