@@ -77,7 +77,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 
-# Разрешаем отправку cookies с CORS запросами
+# Разрешаем отправку cookies with CORS запросами
 CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = "backend.urls"

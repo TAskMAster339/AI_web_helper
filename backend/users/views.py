@@ -218,10 +218,10 @@ class TokenRefreshView(APIView):
                     samesite="Lax",
                 )
 
-            return response
-
         except (TokenError, User.DoesNotExist):
             return Response(
                 {"detail": "Недействительный refresh token"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+        else:
+            return response
