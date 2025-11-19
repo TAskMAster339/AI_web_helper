@@ -12,43 +12,42 @@ cd "$FRONTEND_DIR" || {
 
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep "^$FRONTEND_DIR/.*\.\(ts\|tsx\|js\|jsx\)$" | sed "s|^$FRONTEND_DIR/||")
 
-if [ "$STAGED_FILES" = "" ]; then
-    echo "✅ No frontend files to check"
-    cd - > /dev/null
-    exit 0
-fi
+if [ "$STAGED_FILES" != "" ]; then
+    echo "📁 Files to check:"
+    echo "$STAGED_FILES"
 
-echo "📁 Files to check:"
-echo "$STAGED_FILES"
+    echo "🔧 Running ESLint..."
+    npx eslint --fix $STAGED_FILES
+    if [ $? -ne 0 ]; then
+        echo "❌ ESLint failed!"
+        cd - > /dev/null
+        exit 1
+    fi
 
-echo "🔧 Running ESLint..."
-npx eslint --fix $STAGED_FILES
-if [ $? -ne 0 ]; then
-    echo "❌ ESLint failed!"
-    cd - > /dev/null
-    exit 1
-fi
+    echo "🎨 Running Prettier..."
+    npx prettier --write $STAGED_FILES
+    if [ $? -ne 0 ]; then
+        echo "❌ Prettier failed!"
+        cd - > /dev/null
+        exit 1
+    fi
 
-echo "🎨 Running Prettier..."
-npx prettier --write $STAGED_FILES
-if [ $? -ne 0 ]; then
-    echo "❌ Prettier failed!"
-    cd - > /dev/null
-    exit 1
-fi
+    echo "📘 Running TypeScript type check..."
+    npx tsc --build tsconfig.app.json tsconfig.node.json --noEmit
+    TSC_EXIT=$?
+    if [ $TSC_EXIT -ne 0 ]; then
+        echo "❌ TypeScript type check failed!"
+        echo "💡 Please fix the type errors above before committing."
+        cd - > /dev/null
+        exit 1
+    fi
 
-echo "📘 Running TypeScript type check..."
-npx tsc --build tsconfig.app.json tsconfig.node.json --noEmit
-TSC_EXIT=$?
-if [ $TSC_EXIT -ne 0 ]; then
-    echo "❌ TypeScript type check failed!"
-    echo "💡 Please fix the type errors above before committing."
-    cd - > /dev/null
-    exit 1
+    git add $(echo "$STAGED_FILES" | sed "s|^|$FRONTEND_DIR/|")
+else
+  echo "✅ No frontend files to check"
 fi
 
 cd - > /dev/null
-git add $(echo "$STAGED_FILES" | sed "s|^|$FRONTEND_DIR/|")
 
 # ---------- BACKEND ----------
 echo "🐍 Running Ruff lint on backend..."
