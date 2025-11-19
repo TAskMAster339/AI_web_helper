@@ -1,0 +1,45 @@
+# Node.js frontend (если не нужен при сборке backend)
+frontend/
+node_modules/
+
+# Python виртуальные окружения и служебные файлы по всему проекту
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python и Django служебные файлы
+*.log
+*.sqlite3
+db.sqlite3
+media/
+static/
+staticfiles/
+.coverage
+htmlcov/
+.tox/
+pytest_cache/
+coverage.xml
+build/
+dist/
+*.egg-info/
+
+# IDE/редактор конфиги
+.idea/
+.vscode/
+*.swp
+
+# Кэш, временные директории
+.ruff_cache/
+.git/
+.git-hooks/
+.ruff_cache/
+.ruff_cache
+
+# Документация и вспомог
