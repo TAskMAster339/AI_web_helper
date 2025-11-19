@@ -1,0 +1,31 @@
+# node_modules (зависимости устанавливаются внутри образа)
+node_modules
+**/node_modules
+
+# логи
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# кэш менеджеров пакетов
+.npm
+.yarn
+.pnpm-debug.log
+
+# директории сборки (если build делается локально)
+dist
+build
+
+# временные файлы editorов/IDE
+*.swp
+*.swo
+.vscode
+.idea
+
+# тестовые отчёты и временные артефакты
+coverage
+*.tgz
+
+# окружение
+.env
+.env.*
