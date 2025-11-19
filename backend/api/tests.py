@@ -11,7 +11,7 @@ class ProductAPITestCase(TestCase):
         self.client = APIClient()
         self.user = User.objects.create_user(
             username="testuser",
-            password="testpass123",  # noqa: S106
+            password="testpass123",
         )
         self.category = Category.objects.create(
             name="Test Category",
