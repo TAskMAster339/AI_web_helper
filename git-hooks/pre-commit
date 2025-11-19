@@ -3,6 +3,7 @@
 echo "🚀 Running pre-commit checks..."
 
 FRONTEND_DIR="frontend"
+BACKEND_DIR="backend"
 
 cd "$FRONTEND_DIR" || {
     echo "❌ Cannot enter $FRONTEND_DIR directory"
@@ -48,6 +49,23 @@ fi
 
 cd - > /dev/null
 git add $(echo "$STAGED_FILES" | sed "s|^|$FRONTEND_DIR/|")
+
+# ---------- BACKEND ----------
+echo "🐍 Running Ruff lint on backend..."
+
+STAGED_BACKEND_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep "^backend/.*\.py$")
+
+if [ "$STAGED_BACKEND_FILES" != "" ]; then
+  echo "📁 Python files to check:"
+  echo "$STAGED_BACKEND_FILES"
+  ruff check --fix backend || {
+    echo "❌ Ruff linting failed!"
+    exit 1
+  }
+  git add $(echo "$STAGED_BACKEND_FILES")
+else
+  echo "✅ No backend Python files to check."
+fi
 
 echo "✅ All checks passed! Committing..."
 exit 0
