@@ -34,6 +34,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install ruff
 
+      - name: Make Python scripts executable (shebang fix)
+        run: |
+          find . -name "*.py" -exec grep -l '^#!' {} \; | xargs chmod +x
+
+
       - name: Run Ruff lint check
         run: |
           ruff check --output-format=github .
