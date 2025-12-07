@@ -1,4 +1,3 @@
-from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
@@ -36,6 +35,20 @@ class RegisterSerializer(serializers.ModelSerializer):
             "last_name",
         )
 
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError(
+                "Пользователь с таким логином уже существует",  # noqa: RUF001
+            )
+        return value
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError(
+                "Пользователь с таким email уже существует",  # noqa: RUF001
+            )
+        return value
+
     def validate(self, data):
         if data["password"] != data["password2"]:
             raise serializers.ValidationError({"password": "Пароли не совпадают"})
@@ -47,17 +60,33 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
+    login = serializers.CharField(label="Логин или Email")
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        user = authenticate(
-            username=data.get("username"),
-            password=data.get("password"),
-        )
-        if not user:
-            raise serializers.ValidationError("Invalid credentials")  # noqa: TRY003
-        return {"user": user}
+        login_value = data.get("login")
+        password = data.get("password")
+        user = None
+
+        # Пробуем найти по username
+        try:
+            user = User.objects.get(username=login_value)
+        except User.DoesNotExist:
+            # Пробуем найти по email
+            try:
+                user = User.objects.get(email=login_value)
+            except User.DoesNotExist:
+                user = None
+
+        if user is None:
+            raise serializers.ValidationError("Пользователь не найден")
+
+        # Проверяем пароль
+        if not user.check_password(password):
+            raise serializers.ValidationError("Неверный пароль")
+
+        data["user"] = user
+        return data
 
 
 class TokenSerializer(serializers.Serializer):
@@ -80,7 +109,7 @@ class PasswordResetSerializer(serializers.Serializer):
         try:
             User.objects.get(email=value)
         except User.DoesNotExist:
-            raise serializers.ValidationError("Пользователь с таким email не найден")  # noqa: B904, RUF001, TRY003
+            raise serializers.ValidationError("Пользователь с таким email не найден")  # noqa: B904, RUF001
         return value
 
 
@@ -104,9 +133,9 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         try:
             reset_token = PasswordResetToken.objects.get(token=value)
             if not reset_token.is_valid():
-                raise serializers.ValidationError("Токен истёк или уже был использован")  # noqa: TRY003
+                raise serializers.ValidationError("Токен истёк или уже был использован")
         except PasswordResetToken.DoesNotExist:
-            raise serializers.ValidationError("Токен не найден")  # noqa: B904, TRY003
+            raise serializers.ValidationError("Токен не найден")  # noqa: B904
         return value
 
     def save(self):

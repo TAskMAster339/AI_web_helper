@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
 export default function Register() {
@@ -30,12 +30,10 @@ export default function Register() {
       setFormError('Заполните все поля');
       return;
     }
-
     if (formData.password !== formData.password2) {
       setFormError('Пароли не совпадают');
       return;
     }
-
     if (formData.password.length < 8) {
       setFormError('Пароль должен быть не менее 8 символов');
       return;
@@ -43,7 +41,8 @@ export default function Register() {
 
     try {
       await register(formData.username, formData.email, formData.password, formData.password2);
-      navigate('/');
+      // после регистрации переход на инфо-страницу с email
+      navigate('/register-info', { state: { email: formData.email } });
     } catch (err) {
       console.error('Register error:', err);
     }
@@ -66,7 +65,7 @@ export default function Register() {
         <input
           type="text"
           name="username"
-          placeholder="Имя пользователя"
+          placeholder="Логин (имя пользователя) — обязательное, уникальное"
           value={formData.username}
           onChange={handleChange}
           disabled={isLoading}
@@ -75,7 +74,7 @@ export default function Register() {
         <input
           type="email"
           name="email"
-          placeholder="Email"
+          placeholder="Email — обязательный, уникальный"
           value={formData.email}
           onChange={handleChange}
           disabled={isLoading}

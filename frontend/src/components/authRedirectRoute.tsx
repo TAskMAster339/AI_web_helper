@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+// import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
 interface AuthRedirectRouteProps {
@@ -13,7 +13,8 @@ const AuthRedirectRoute = ({ children }: AuthRedirectRouteProps) => {
   const { isAuthenticated } = useAuthStore();
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    console.log('hello from authRedirect');
+    // return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

@@ -1,6 +1,10 @@
+import uuid
+
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.mail import send_mail
+from django.http import HttpResponseRedirect
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -24,29 +28,35 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            refresh = RefreshToken.for_user(user)
+            # Создаем пользователя неактивным
+            user = serializer.save(is_active=False)
 
-            response = Response(
-                {
-                    "user": UserSerializer(user).data,
-                    "access": str(refresh.access_token),
-                },
+            activation_token = str(uuid.uuid4())
+            # Сохраняем токен в кэш
+            cache.set(f"activate:{activation_token}", user.id, timeout=60 * 60 * 24)
+
+            activation_url = (
+                f"{settings.BACKEND_URL}/api/users/activate/{activation_token}/"
+            )
+
+            message = (
+                f"Добро пожаловать в AI Web Helper!\n"
+                f"Для активации аккаунта перейдите по ссылке:\n\n"
+                f"{activation_url}\n\n"
+                f"Ссылка действительна 24 часа."
+            )
+            send_mail(
+                subject="Подтверждение регистрации",
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+            return Response(
+                {"detail": "Письмо с подтверждением отправлено на вашу почту"},  # noqa: RUF001
                 status=status.HTTP_201_CREATED,
             )
-
-            # Устанавливаем refresh token в httpOnly cookie
-            response.set_cookie(
-                "refresh_token",
-                str(refresh),
-                max_age=settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds(),
-                httponly=True,
-                secure=not settings.DEBUG,  # HTTPS в продакшене
-                samesite="Lax",
-            )
-
-            return response
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -80,6 +90,29 @@ class LoginView(APIView):
             return response
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ActivateAccountView(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, token):
+        user_id = cache.get(f"activate:{token}")
+        if not user_id:
+            return Response(
+                {"detail": "Токен истёк или недействителен"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            user = User.objects.get(id=user_id, is_active=False)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Пользователь не найден или уже активирован"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.is_active = True
+        user.save()
+        cache.delete(f"activate:{token}")
+        return HttpResponseRedirect(f"{settings.FRONTEND_URL}/success-activate")
 
 
 class UserDetailView(APIView):

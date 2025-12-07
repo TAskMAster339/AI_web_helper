@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import About from './components/about';
+import ActivateSuccess from './components/activateSuccess';
 import AuthRedirectRoute from './components/authRedirectRoute';
 import Dashboard from './components/dashboard';
 import ForgotPassword from './components/forgotPassword';
@@ -11,7 +12,9 @@ import Login from './components/login';
 import NotFound from './components/notFound';
 import ProtectedRoute from './components/protectedRoute';
 import Register from './components/register';
+import RegisterInfo from './components/registerInfo';
 import ResetPassword from './components/resetPassword';
+
 import { useAuthStore } from './store/authStore';
 
 function App() {
@@ -59,10 +62,6 @@ function App() {
             }
           />
 
-          {/* Восстановление пароля */}
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-
           {/* Защищённый маршрут */}
           <Route
             path="/dashboard"
@@ -72,6 +71,12 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/register-info" element={<RegisterInfo />} />
+          <Route path="/success-activate" element={<ActivateSuccess />} />
+
+          {/* Восстановление пароля */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

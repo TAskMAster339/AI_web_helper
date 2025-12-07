@@ -24,7 +24,7 @@ interface AuthStore {
   isAuthenticated: boolean;
 
   register: (username: string, email: string, password: string, password2: string) => Promise<void>;
-  login: (username: string, password: string) => Promise<void>;
+  login: (login: string, password: string) => Promise<void>;
   logout: () => void;
   fetchUser: () => Promise<void>;
   setUser: (user: User) => void;
@@ -46,6 +46,8 @@ export const useAuthStore = create<AuthStore>()(
       isLoading: false,
       error: null,
       isAuthenticated: false,
+
+      // Регистрация аккаунта
       register: async (username, email, password, password2) => {
         set({ isLoading: true, error: null });
         try {
@@ -62,7 +64,7 @@ export const useAuthStore = create<AuthStore>()(
           set({
             user,
             access_token: access,
-            isAuthenticated: true,
+            isAuthenticated: false,
             isLoading: false,
           });
         } catch (error: unknown) {
@@ -81,11 +83,13 @@ export const useAuthStore = create<AuthStore>()(
           throw error;
         }
       },
-      login: async (username, password) => {
+
+      // Вход по логину или почте
+      login: async (login, password) => {
         set({ isLoading: true, error: null });
         try {
           const response = await api.post<TokenResponse>('/users/login/', {
-            username,
+            login,
             password,
           });
 
@@ -109,14 +113,21 @@ export const useAuthStore = create<AuthStore>()(
           throw error;
         }
       },
-      logout: () => {
-        localStorage.removeItem('access_token');
-        set({
-          user: null,
-          access_token: null,
-          isAuthenticated: false,
-          error: null,
-        });
+
+      logout: async () => {
+        try {
+          await api.post('/users/logout/');
+        } catch {
+          // Игнорируем, если пользователь не вошёл.
+        } finally {
+          localStorage.removeItem('access_token');
+          set({
+            user: null,
+            access_token: null,
+            isAuthenticated: false,
+            error: null,
+          });
+        }
       },
 
       fetchUser: async () => {

@@ -11,6 +11,8 @@ SECRET_KEY = config("SECRET_KEY")
 
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
 
+BACKEND_URL = config("BACKEND_URL", default="http://localhost:8000")
+
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="").split(",")
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"  # Console for dev
@@ -107,6 +109,12 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD", default="admin"),
         "HOST": config("DB_HOST", default="localhost"),
         "PORT": config("DB_PORT", default="5433"),
+    },
+}
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
     },
 }
 
