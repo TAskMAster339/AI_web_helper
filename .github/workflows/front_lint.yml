@@ -1,10 +1,14 @@
-name: Lint Check
+name: Lint Check (Frontend)
 
 on:
   push:
     branches: [main, dev]
+    paths:
+      - "frontend/**"
   pull_request:
     branches: [main, dev]
+    paths:
+      - "frontend/**"
 
 jobs:
   lint:
