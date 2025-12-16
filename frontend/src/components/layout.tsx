@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import FloatingLLMChat from './floatingLLMChat';
+import NavLink from './navLink';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -28,19 +30,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             AI Web Helper
           </Link>
 
-          <nav className="hidden sm:flex gap-5 text-sm">
-            <Link to="/" className="opacity-80 hover:opacity-100 transition-opacity">
-              Главная
-            </Link>
-            <Link to="/about" className="opacity-80 hover:opacity-100 transition-opacity">
-              О нас
-            </Link>
-            <Link to="/login" className="opacity-80 hover:opacity-100 transition-opacity">
-              Логин
-            </Link>
-            <Link to="/register" className="opacity-80 hover:opacity-100 transition-opacity">
-              Регистрация
-            </Link>
+          <nav className="hidden sm:flex gap-8">
+            <NavLink to="/">Главная</NavLink>
+            <NavLink to="/about">О нас</NavLink>
+            <NavLink to="/login">Логин</NavLink>
+            <NavLink to="/register">Регистрация</NavLink>
           </nav>
 
           <button
@@ -54,8 +48,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="flex-1 w-full max-w-2xl mx-auto px-4 py-8">{children}</main>
+      <FloatingLLMChat />
 
-      <footer className="py-5 text-center text-xs footer">© 2025 AI Web Helper</footer>
+      <footer className="py-8 text-center text-s footer">© 2025 AI Web Helper</footer>
     </div>
   );
 }

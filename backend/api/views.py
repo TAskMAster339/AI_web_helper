@@ -1,15 +1,25 @@
+import logging
+
 from django.db.models import Q
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import (
+    AllowAny,
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+)
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from .llm_service import ACTIONS_MAP, OllamaService
 from .models import Category, Order, Product
 from .serializers import (
     CategorySerializer,
     OrderSerializer,
     ProductSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -92,4 +102,110 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(
             {"error": "Cannot cancel this order"},
             status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class AskLLMView(APIView):
+    """
+    Эндпоинт для отправки вопроса в LLM и получения кода действия.
+
+    POST /api/llm/ask/
+    {
+        "question": "Что ты мне порекомендуешь?",
+        "model": "alibayram/smollm3",
+        "mode": "chat"  # или "navigate"
+    }
+    """
+
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        """Обработать POST запрос с вопросом"""  # noqa: RUF002
+        question = request.data.get("question", "").strip()
+        model = request.data.get("model", "alibayram/smollm3")
+        mode = request.data.get("mode", "chat")  # "chat" или "navigate"
+
+        if not question:
+            return Response(
+                {"error": "Question field is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            if mode == "navigate":
+                # Режим навигации - получить код действия
+                action_code = OllamaService.get_action_code(question, model)
+                action_description = ACTIONS_MAP.get(
+                    action_code,
+                    "Неизвестное действие",
+                )
+                return Response(
+                    {
+                        "question": question,
+                        "action_code": action_code,
+                        "action_description": action_description,
+                        "mode": "navigate",
+                        "model": model,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            # Обычный режим чата - получить полный ответ
+            answer = OllamaService.generate_response(question, model)
+            return Response(
+                {
+                    "question": question,
+                    "answer": answer,
+                    "mode": "chat",
+                    "model": model,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            logger.error(f"Ошибка в обработке LLM: {e!s}", exc_info=True)  # noqa: G004, G201
+            return Response(
+                {"error": f"LLM processing error: {e!s}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class GetAvailableModelsView(APIView):
+    """
+    Получить список доступных моделей в Ollama
+
+    GET /api/llm/models/
+    """
+
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """Получить доступные модели"""
+        try:
+            models = OllamaService.list_available_models()
+            return Response(
+                {"models": models},
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            logger.error(f"Ошибка при получении моделей: {e!s}", exc_info=True)  # noqa: G004, G201
+            return Response(
+                {"models": ["alibayram/smollm3"]},
+                status=status.HTTP_200_OK,
+            )
+
+
+class GetActionsMapView(APIView):
+    """
+    Получить список всех доступных кодов действий
+
+    GET /api/llm/actions/
+    """
+
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """Получить ACTIONS_MAP"""
+        return Response(
+            {"actions": ACTIONS_MAP},
+            status=status.HTTP_200_OK,
         )

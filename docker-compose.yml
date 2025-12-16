@@ -26,15 +26,20 @@ services:
       - "8000:8000"
     depends_on:
       - db
+      - ollama
     environment:
-      DB_NAME: workdb
-      DB_USER: workuser
-      DB_PASSWORD: workpass
-      DB_HOST: db
-      DB_PORT: 5432
-      DEBUG: "True"
-      SECRET_KEY: your-secret-key-here
-      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      DEBUG: ${DEBUG:-False}
+      SECRET_KEY: ${SECRET_KEY}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DB_NAME: ${DB_NAME:-postgres}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-admin}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      OLLAMA_BASE_URL: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL:-alibayram/smollm3}
     networks:
       - backend
 
@@ -48,7 +53,18 @@ services:
     depends_on:
       - backend
     environment:
-      - VITE_API_URL=http://backend:8000/api
+      - VITE_API_URL=${REACT_APP_API_URL:-http://localhost:8000/api}
+    networks:
+      - backend
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    volumes:
+      - ollama_data:/root/.ollama
     networks:
       - backend
 
@@ -68,6 +84,7 @@ services:
 
 volumes:
   pg_data:
+  ollama_data:
   static_volume:
 
 networks:
