@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import llmService, { type ChatMessage } from '../services/llmService';
+import { createActionHandlers, executeAction } from '../utils/actionHandlers';
 import './llmChat.css';
 
 const FloatingLLMChat: React.FC = () => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
@@ -18,23 +21,22 @@ const FloatingLLMChat: React.FC = () => {
   const resizeRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Загрузить доступные модели при монтировании компонента
+  // Загрузить доступные модели и карту действий при монтировании
   useEffect(() => {
-    const loadModels = async () => {
+    const loadData = async () => {
       try {
         const models = await llmService.getAvailableModels();
         setAvailableModels(models);
         if (models.length > 0) {
           setSelectedModel(models[0]);
         }
-      } catch (error) {
-        console.error('Failed to load models:', error);
+      } catch (err) {
+        console.error('Failed to load LLM data:', err);
       }
     };
 
-    loadModels();
+    loadData();
 
-    // Отслеживать изменение темы
     const checkDarkMode = () => {
       const isDark = document.documentElement.classList.contains('dark');
       setIsDarkMode(isDark);
@@ -42,7 +44,6 @@ const FloatingLLMChat: React.FC = () => {
 
     checkDarkMode();
 
-    // Слушать изменения класса dark
     const observer = new MutationObserver(checkDarkMode);
     observer.observe(document.documentElement, {
       attributes: true,
@@ -63,18 +64,14 @@ const FloatingLLMChat: React.FC = () => {
       if (!isResizing || !containerRef.current) return;
 
       const rect = containerRef.current.getBoundingClientRect();
-
-      // Для левого верхнего угла: уменьшаем ширину слева и высоту сверху
       const newWidth = rect.width + (rect.left - e.clientX);
       const newHeight = rect.height + (rect.top - e.clientY);
 
-      // Ограничения размера
       const MIN_WIDTH = 300;
       const MIN_HEIGHT = 300;
       const MAX_WIDTH = window.innerWidth - 40;
-      const MAX_HEIGHT = window.innerHeight - 150; // 150px место для кнопки и UI
+      const MAX_HEIGHT = window.innerHeight - 150;
 
-      // Проверяем минимальные и максимальные размеры
       if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
         setWidth(newWidth);
       }
@@ -102,11 +99,6 @@ const FloatingLLMChat: React.FC = () => {
   const generateId = (): string => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   };
-
-  const cleanResponse = (text: string): string => {
-    return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -128,19 +120,29 @@ const FloatingLLMChat: React.FC = () => {
 
       setMessages((prev) => [...prev, userMessage]);
 
-      let answer = await llmService.askQuestion({
-        question: userQuestion,
-        model: selectedModel,
-      });
+      // Получаем код действия у LLM
+      const { action_code, action_description } = await llmService.getActionCode(
+        userQuestion,
+        selectedModel
+      );
 
-      // Очистить ответ от тегов <think>
-      answer = cleanResponse(answer);
-
+      const answer = `✅ ${action_description}`;
       setMessages((prev) =>
         prev.map((msg) => (msg.id === userMessage.id ? { ...msg, answer } : msg))
       );
-    } catch (error) {
-      console.error('Error getting response:', error);
+
+      // Создаём обработчики действий (на основе navigate и внутренних утилит)
+      const actionHandlers = createActionHandlers(navigate);
+
+      // Выполнить действие с обработкой ошибок
+      setTimeout(() => {
+        executeAction(action_code, actionHandlers, (err) => {
+          console.error('Action execution failed:', err);
+          setError(`Ошибка выполнения действия: ${err.message}`);
+        });
+      }, 800);
+    } catch (err) {
+      console.error('Error getting response:', err);
       setError('Ошибка при получении ответа. Попробуйте ещё раз.');
       setMessages((prev) => prev.slice(0, -1));
     } finally {
@@ -149,7 +151,7 @@ const FloatingLLMChat: React.FC = () => {
   };
 
   const handleClearChat = () => {
-    if (window.confirm('Вы уверены, что хотите очистить всё сообщения?')) {
+    if (window.confirm('Вы уверены, что хотите очистить все сообщения?')) {
       setMessages([]);
       setError(null);
     }
@@ -157,7 +159,6 @@ const FloatingLLMChat: React.FC = () => {
 
   return (
     <div className="floating-chat-wrapper">
-      {/* Плавающая кнопка */}
       {!isOpen && (
         <button
           className="floating-chat-button"
@@ -169,7 +170,6 @@ const FloatingLLMChat: React.FC = () => {
         </button>
       )}
 
-      {/* Окно чата с поддержкой resize */}
       {isOpen && (
         <div
           ref={containerRef}
@@ -179,7 +179,6 @@ const FloatingLLMChat: React.FC = () => {
             height: `${height}px`,
           }}
         >
-          {/* Resize handle в правом верхнем углу */}
           <div
             ref={resizeRef}
             className="resize-handle"
@@ -205,7 +204,7 @@ const FloatingLLMChat: React.FC = () => {
                 </select>
               )}
               <button className="close-button" onClick={() => setIsOpen(false)} title="Закрыть чат">
-                ✕
+                ✗
               </button>
             </div>
           </div>
@@ -214,7 +213,7 @@ const FloatingLLMChat: React.FC = () => {
             <div className="error-message">
               <span>{error}</span>
               <button onClick={() => setError(null)} className="error-close">
-                ✕
+                ✗
               </button>
             </div>
           )}
@@ -224,6 +223,9 @@ const FloatingLLMChat: React.FC = () => {
               <div className="empty-state">
                 <p>👋 Начните разговор с ассистентом ИИ</p>
                 <p className="empty-subtitle">Сообщения хранятся локально</p>
+                <p className="empty-hint">
+                  💡 Например: &quot;смени на темный&quot; или &quot;перейди в профиль&quot;
+                </p>
               </div>
             ) : (
               messages.map((msg) => (

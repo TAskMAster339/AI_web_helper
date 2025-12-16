@@ -553,3 +553,13 @@
     display: none;
   }
 }
+
+.empty-hint {
+  font-size: 11px !important;
+  color: #aaa;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 6px;
+  border-left: 2px solid #667eea;
+}
