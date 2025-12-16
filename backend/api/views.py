@@ -1,9 +1,15 @@
 from django.db.models import Q
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import (
+    AllowAny,
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+)
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from .llm_service import OllamaService
 from .models import Category, Order, Product
 from .serializers import (
     CategorySerializer,
@@ -93,3 +99,52 @@ class OrderViewSet(viewsets.ModelViewSet):
             {"error": "Cannot cancel this order"},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+
+class AskLLMView(APIView):
+    """
+    Эндпоинт для отправки вопроса в LLM
+
+    POST /api/llm/ask/
+    {
+        "question": "Как работает LLM?",
+        "model": "alibayram/smollm3"
+    }
+    """
+
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        """Обработать POST запрос с вопросом"""  # noqa: RUF002
+        question = request.data.get("question", "").strip()
+        model = request.data.get("model", "alibayram/smollm3")
+
+        if not question:
+            return Response(
+                {"error": "Question field is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Получить ответ от Ollama (системный промпт только на backend)
+        answer = OllamaService.generate_response(question, model)
+
+        return Response(
+            {"question": question, "answer": answer, "model": model},
+            status=status.HTTP_200_OK,
+        )
+
+
+
+class ListModelsView(APIView):
+    """
+    Получить список доступных моделей
+
+    GET /api/llm/models/
+    """
+
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        """Получить список доступных моделей"""
+        models = OllamaService.list_available_models()
+        return Response({"models": models})
