@@ -1,6 +1,5 @@
+import api from '../api/axios';
 import { ROUTES_CONFIG } from '../config/routers';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export interface ChatMessage {
   id: string;
@@ -41,27 +40,15 @@ class LLMService {
     model: string = 'alibayram/smollm3'
   ): Promise<{ action_code: string; action_description: string }> {
     try {
-      const response = await fetch(`${API_URL}/api/llm/ask/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: question,
-          model: model,
-          mode: 'navigate',
-        }),
+      const response = await api.post<LLMResponse>('/llm/ask/', {
+        question: question,
+        model: model,
+        mode: 'navigate',
       });
 
-      if (!response.ok) {
-        console.error('LLM request failed:', response.statusText);
-        return { action_code: '001', action_description: 'Главная страница' };
-      }
-
-      const data: LLMResponse = await response.json();
       return {
-        action_code: data.action_code || '001',
-        action_description: data.action_description || 'Главная страница',
+        action_code: response.data.action_code || '001',
+        action_description: response.data.action_description || 'Главная страница',
       };
     } catch (error) {
       console.error('Action code fetch error:', error);
@@ -75,20 +62,8 @@ class LLMService {
    */
   async getActionsMap(): Promise<ActionsMap> {
     try {
-      const response = await fetch(`${API_URL}/api/llm/actions/`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        console.error('Failed to fetch actions map:', response.statusText);
-        return {};
-      }
-
-      const data = await response.json();
-      return data.actions || {};
+      const response = await api.get<{ actions: ActionsMap }>('/llm/actions/');
+      return response.data.actions || {};
     } catch (error) {
       console.error('Actions map fetch error:', error);
       return {};
@@ -102,25 +77,13 @@ class LLMService {
    */
   async askQuestion(params: AskQuestionParams): Promise<string> {
     try {
-      const response = await fetch(`${API_URL}/api/llm/ask/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: params.question,
-          model: params.model,
-          mode: 'chat',
-        }),
+      const response = await api.post<LLMResponse>('/llm/ask/', {
+        question: params.question,
+        model: params.model,
+        mode: 'chat',
       });
 
-      if (!response.ok) {
-        console.error('LLM request failed:', response.statusText);
-        return 'Ошибка: Не удалось получить ответ';
-      }
-
-      const data: LLMResponse = await response.json();
-      return data.answer || 'Ответ не получен';
+      return response.data.answer || 'Ответ не получен';
     } catch (error) {
       console.error('LLM Service error:', error);
       throw new Error('Ошибка при обращении к LLM');
@@ -133,20 +96,8 @@ class LLMService {
    */
   async getAvailableModels(): Promise<string[]> {
     try {
-      const response = await fetch(`${API_URL}/api/llm/models/`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        console.error('Failed to fetch models:', response.statusText);
-        return ['alibayram/smollm3'];
-      }
-
-      const data = await response.json();
-      return data.models || ['alibayram/smollm3'];
+      const response = await api.get<{ models: string[] }>('/llm/models/');
+      return response.data.models || ['alibayram/smollm3'];
     } catch (error) {
       console.error('Error fetching models:', error);
       return ['alibayram/smollm3'];
