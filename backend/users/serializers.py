@@ -1,3 +1,4 @@
+from api.s3_service import generate_presigned_url
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
@@ -9,6 +10,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     can_make_request = serializers.SerializerMethodField()
     requests_remaining = serializers.SerializerMethodField()
     available_models = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
@@ -20,12 +22,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "can_make_request",
             "requests_remaining",
             "available_models",
+            "avatar_url",
         )
         read_only_fields = (
+            "role",
             "daily_requests_used",
             "can_make_request",
             "requests_remaining",
             "available_models",
+            "avatar_url",
         )
 
     def get_can_make_request(self, obj):
@@ -40,6 +45,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_available_models(self, obj):
         return obj.get_available_models()
 
+    def get_avatar_url(self, obj):
+        if not obj.avatar_s3_key:
+            return None
+        try:
+            return generate_presigned_url(obj.avatar_s3_key, expires_in=3600)
+        except Exception:
+            return None
+
 
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
@@ -47,7 +60,24 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("id", "username", "email", "first_name", "last_name", "profile")
-        read_only_fields = ("id",)
+        read_only_fields = ("id", "username", "email")
+
+
+class UpdateProfileSerializer(serializers.ModelSerializer):
+    """Allows user to update their own editable fields."""
+
+    first_name = serializers.CharField(max_length=150, allow_blank=True, required=False)
+    last_name = serializers.CharField(max_length=150, allow_blank=True, required=False)
+
+    class Meta:
+        model = User
+        fields = ("first_name", "last_name")
+
+    def update(self, instance, validated_data):
+        instance.first_name = validated_data.get("first_name", instance.first_name)
+        instance.last_name = validated_data.get("last_name", instance.last_name)
+        instance.save()
+        return instance
 
 
 class RegisterSerializer(serializers.ModelSerializer):

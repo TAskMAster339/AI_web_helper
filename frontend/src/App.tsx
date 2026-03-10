@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
+import UserProfilePage from './components/UserProfilePage';
 import About from './components/about';
 import ActivateSuccess from './components/activateSuccess';
 import AdminPanel from './components/adminPanel';
@@ -11,6 +12,10 @@ import Home from './components/home';
 import Layout from './components/layout';
 import Login from './components/login';
 import NotFound from './components/notFound';
+import ProductCreatePage from './components/products/ProductCreatePage';
+import ProductDetailPage from './components/products/ProductDetailPage';
+import ProductEditPage from './components/products/ProductEditPage';
+import ProductsPage from './components/products/ProductsPage';
 import ProtectedRoute from './components/protectedRoute';
 import Register from './components/register';
 import RegisterInfo from './components/registerInfo';
@@ -82,6 +87,22 @@ function App() {
           {/* Восстановление пароля */}
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Products — каталог, просмотр, создание, редактирование */}
+          <Route path="/products" element={<ProductsPage />} />
+          <Route path="/products/new" element={<ProductCreatePage />} />
+          <Route path="/products/:slug" element={<ProductDetailPage />} />
+          <Route path="/products/:slug/edit" element={<ProductEditPage />} />
+
+          {/* Публичный профиль пользователя */}
+          <Route
+            path="/users/:userId"
+            element={
+              <ProtectedRoute>
+                <UserProfilePage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

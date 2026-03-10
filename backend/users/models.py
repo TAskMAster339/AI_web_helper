@@ -28,11 +28,13 @@ class UserProfile(models.Model):
         max_length=20,
         choices=ROLE_CHOICES,
         default="user",
-    )
-    # Limits for regular users
+    )  # Limits for regular users
     daily_requests_limit = models.IntegerField(default=10)
     daily_requests_used = models.IntegerField(default=0)
     last_request_reset = models.DateField(auto_now_add=True)
+
+    # Avatar stored in S3/MinIO
+    avatar_s3_key = models.CharField(max_length=512, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -10,6 +10,7 @@ urlpatterns = [
     path("login/", views.LoginView.as_view(), name="login"),
     path("logout/", views.LogoutView.as_view(), name="logout"),
     path("me/", views.UserDetailView.as_view(), name="user_detail"),
+    path("me/avatar/", views.AvatarUploadView.as_view(), name="user_avatar"),
     # JWT token endpoints
     path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", views.TokenRefreshView.as_view(), name="token_refresh"),
@@ -19,12 +20,17 @@ urlpatterns = [
         "password-reset-confirm/",
         views.PasswordResetConfirmView.as_view(),
         name="password_reset_confirm",
-    ),
-    # Admin endpoints
+    ),  # Admin endpoints
     path("admin/users/", views.ManageUsersView.as_view(), name="admin_users"),
     path(
         "admin/users/<int:user_id>/role/",
         views.UpdateUserRoleView.as_view(),
         name="admin_update_role",
+    ),
+    # Public user profile (view only; admin can also PATCH)
+    path(
+        "<int:user_id>/",
+        views.PublicUserProfileView.as_view(),
+        name="public_profile",
     ),
 ]

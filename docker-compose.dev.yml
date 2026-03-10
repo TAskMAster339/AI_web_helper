@@ -11,6 +11,11 @@ services:
       - pg_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workuser -d workdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - backend
 
@@ -19,29 +24,42 @@ services:
       context: .
       dockerfile: ./backend/Dockerfile
     container_name: backend
+    # Перезапускаем сервер при изменении Python-файлов (Django runserver --noreload отключён)
+    command: python backend/manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app/backend
       - static_volume:/app/backend/staticfiles
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - ollama
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      minio:
+        condition: service_started
     environment:
-      DEBUG: ${DEBUG:-False}
-      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: "True"
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
-      DB_NAME: ${DB_NAME:-postgres}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-admin}
-      DB_HOST: ${DB_HOST:-postgres}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      DB_NAME: ${DB_NAME:-workdb}
+      DB_USER: ${DB_USER:-workuser}
+      DB_PASSWORD: ${DB_PASSWORD:-workpass}
+      DB_HOST: ${DB_HOST:-db}
       DB_PORT: ${DB_PORT:-5432}
       OLLAMA_BASE_URL: http://ollama:11434
       LLM_MODEL: ${LLM_MODEL:-alibayram/smollm3}
+      # MinIO / S3
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-product-images}
+      AWS_S3_ENDPOINT_URL: http://minio:9000
+      AWS_S3_PUBLIC_URL: http://localhost:9000
     networks:
       - backend
+
   # FRONTEND DEV - с hot reload
   frontend:
     build:
@@ -63,10 +81,10 @@ services:
       # Исключаем node_modules из синхронизации
       - /app/node_modules
     environment:
-      - NODE_ENV=development
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
-      - VITE_API_URL=${REACT_APP_API_URL:-http://localhost:8000/api}
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
     depends_on:
       - backend
     stdin_open: true
@@ -83,6 +101,28 @@ services:
       - OLLAMA_HOST=0.0.0.0:11434
     volumes:
       - ollama_data:/root/.ollama
+    networks:
+      - backend
+
+  # Объектное хранилище S3-совместимое
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # MinIO Web Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - backend
 
@@ -104,6 +144,7 @@ volumes:
   pg_data:
   ollama_data:
   static_volume:
+  minio_data:
 
 networks:
   backend:

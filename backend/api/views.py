@@ -1,8 +1,12 @@
+import contextlib
 import logging
 
+from django.conf import settings
 from django.db.models import Q
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import (
     AllowAny,
     IsAuthenticated,
@@ -12,11 +16,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from users.permissions import CanMakeRequest
 
+from .filters import ProductFilter
 from .llm_service import ACTIONS_MAP, OllamaService
-from .models import Category, Order, Product
+from .models import Category, Order, Product, ProductImage
+from .s3_service import delete_file, generate_presigned_url, upload_file
 from .serializers import (
     CategorySerializer,
     OrderSerializer,
+    ProductImageSerializer,
     ProductSerializer,
 )
 
@@ -33,50 +40,269 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.select_related("category", "author").all()
+    queryset = (
+        Product.objects.select_related("category", "author")
+        .prefetch_related("images")
+        .all()
+    )
     serializer_class = ProductSerializer
     permission_classes = (IsAuthenticatedOrReadOnly,)
-    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
+    filterset_class = ProductFilter
     search_fields = ("title", "description")
-    ordering_fields = ("price", "created_at", "title")
+    ordering_fields = ("price", "created_at", "title", "stock")
+    ordering = ("-created_at",)
     lookup_field = "slug"
+    # Allow Unicode/Cyrillic characters in slugs (default pattern only allows ASCII)
+    lookup_value_regex = r"[^/.]+"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        if user.is_authenticated and (
+            user.is_staff
+            or getattr(getattr(user, "profile", None), "role", None) == "admin"
+        ):
+            return qs
+        if user.is_authenticated:
+            return qs.filter(Q(status="published") | Q(author=user))
+        return qs.filter(status="published")
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        is_admin = (
+            getattr(getattr(request.user, "profile", None), "role", None) == "admin"
+        )
+        if (
+            instance.author != request.user
+            and not request.user.is_staff
+            and not is_admin
+        ):
+            return Response(
+                {"detail": "Вы не можете редактировать чужой товар."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        is_admin = (
+            getattr(getattr(request.user, "profile", None), "role", None) == "admin"
+        )
+        if (
+            instance.author != request.user
+            and not request.user.is_staff
+            and not is_admin
+        ):
+            return Response(
+                {"detail": "Вы не можете удалить чужой товар."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        for img in instance.images.all():
+            with contextlib.suppress(Exception):
+                delete_file(img.s3_key)
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=False, methods=["get"])
     def featured(self, request):
-        """Получить избранные товары"""
-        featured_products = self.queryset.filter(status="published")[:5]
+        featured_products = (
+            Product.objects.filter(status="published")
+            .select_related("category", "author")
+            .prefetch_related("images")[:6]
+        )
         serializer = self.get_serializer(featured_products, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=["get"])
-    def search(self, request):
-        """Расширенный поиск"""
-        query = request.query_params.get("q", "")
-        min_price = request.query_params.get("min_price")
-        max_price = request.query_params.get("max_price")
-        category = request.query_params.get("category")
-
-        products = self.queryset.filter(status="published")
-
-        if query:
-            products = products.filter(
-                Q(title__icontains=query) | Q(description__icontains=query),
+    def my(self, request):
+        if not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication required."},
+                status=status.HTTP_401_UNAUTHORIZED,
             )
-
-        if min_price:
-            products = products.filter(price__gte=min_price)
-
-        if max_price:
-            products = products.filter(price__lte=max_price)
-
-        if category:
-            products = products.filter(category__id=category)
-
+        products = (
+            Product.objects.filter(author=request.user)
+            .select_related("category", "author")
+            .prefetch_related("images")
+            .order_by("-created_at")
+        )
+        page = self.paginate_queryset(products)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(products, many=True)
         return Response(serializer.data)
+
+
+class ProductImageUploadView(APIView):
+    """
+    POST /api/products/<slug>/images/  — upload image
+    GET  /api/products/<slug>/images/  — list images
+    """
+
+    permission_classes = (IsAuthenticated,)
+    parser_classes = (MultiPartParser,)
+
+    def _get_product(self, slug):
+        try:
+            return Product.objects.get(slug=slug)
+        except Product.DoesNotExist:
+            return None
+
+    def _check_owner(self, request, product):
+        is_admin = (
+            getattr(getattr(request.user, "profile", None), "role", None) == "admin"
+        )
+        return product.author == request.user or request.user.is_staff or is_admin
+
+    def post(self, request, slug):  # noqa: PLR0911
+        product = self._get_product(slug)
+        if not product:
+            return Response(
+                {"detail": "Товар не найден."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if not self._check_owner(request, product):
+            return Response(
+                {"detail": "Нет прав для загрузки."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        file = request.FILES.get("file")
+        if not file:
+            return Response(
+                {"detail": "Файл не передан."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        content_type = file.content_type
+        if content_type not in settings.ALLOWED_IMAGE_TYPES:
+            return Response(
+                {
+                    "detail": f"Недопустимый тип файла. "
+                    f"Разрешены: {', '.join(settings.ALLOWED_IMAGE_TYPES)}",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if file.size > settings.MAX_UPLOAD_SIZE:
+            return Response(
+                {
+                    "detail": f"Файл слишком большой. "
+                    f"Максимум: {settings.MAX_UPLOAD_SIZE // 1024 // 1024} MB",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            s3_key = upload_file(file, content_type, file.name)
+        except Exception as exc:
+            logger.exception("S3 upload failed: %s", exc)
+            return Response(
+                {"detail": "Ошибка загрузки в хранилище."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        image = ProductImage.objects.create(
+            product=product,
+            uploaded_by=request.user,
+            s3_key=s3_key,
+            original_filename=file.name,
+            content_type=content_type,
+            file_size=file.size,
+        )
+        return Response(
+            ProductImageSerializer(image).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def get(self, request, slug):
+        product = self._get_product(slug)
+        if not product:
+            return Response(
+                {"detail": "Товар не найден."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        images = product.images.all()
+        return Response(ProductImageSerializer(images, many=True).data)
+
+
+class ProductImageDetailView(APIView):
+    """
+    GET    /api/products/<slug>/images/<image_id>/  — pre-signed URL
+    DELETE /api/products/<slug>/images/<image_id>/  — delete image
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def _get_image(self, slug, image_id):
+        try:
+            return ProductImage.objects.select_related(
+                "product",
+                "product__author",
+            ).get(
+                id=image_id,
+                product__slug=slug,
+            )
+        except ProductImage.DoesNotExist:
+            return None
+
+    def get(self, request, slug, image_id):
+        image = self._get_image(slug, image_id)
+        if not image:
+            return Response(
+                {"detail": "Изображение не найдено."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        try:
+            url = generate_presigned_url(image.s3_key, expires_in=3600)
+        except Exception as exc:
+            logger.exception("Failed to generate presigned URL: %s", exc)
+            return Response(
+                {"detail": "Не удалось получить ссылку."},  # noqa: RUF001
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response({"url": url, "expires_in": 3600})
+
+    def delete(self, request, slug, image_id):
+        image = self._get_image(slug, image_id)
+        if not image:
+            return Response(
+                {"detail": "Изображение не найдено."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        is_admin = (
+            getattr(getattr(request.user, "profile", None), "role", None) == "admin"
+        )
+        can_delete = (
+            request.user in (image.uploaded_by, image.product.author)
+            or request.user.is_staff
+            or is_admin
+        )
+        if not can_delete:
+            return Response(
+                {"detail": "Нет прав для удаления."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            delete_file(image.s3_key)
+        except Exception as exc:
+            logger.exception("S3 delete failed: %s", exc)
+            return Response(
+                {"detail": "Ошибка удаления из хранилища."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        image.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -84,7 +310,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
-        """Пользователи видят только свои заказы"""
         if self.request.user.is_staff:
             return Order.objects.all()
         return Order.objects.filter(user=self.request.user)
@@ -94,7 +319,6 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
-        """Отменить заказ"""
         order = self.get_object()
         if order.status == "pending":
             order.status = "cancelled"
@@ -107,26 +331,13 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 
 class AskLLMView(APIView):
-    """
-    Эндпоинт для отправки вопроса в LLM и получения кода действия.
-
-    POST /api/llm/ask/
-    {
-        "question": "Что ты мне порекомендуешь?",
-        "model": "alibayram/smollm3",
-        "mode": "chat"  # или "navigate"
-    }
-    """
-
     permission_classes = (IsAuthenticated, CanMakeRequest)
 
     def post(self, request):
-        """Обработать POST запрос с вопросом"""  # noqa: RUF002
         question = request.data.get("question", "").strip()
         model = request.data.get("model", "alibayram/smollm3")
-        mode = request.data.get("mode", "chat")  # "chat" или "navigate"
+        mode = request.data.get("mode", "chat")
 
-        # Check if user has access to requested model
         profile = request.user.profile
         available_models = profile.get_available_models()
 
@@ -144,15 +355,12 @@ class AskLLMView(APIView):
 
         try:
             if mode == "navigate":
-                # Режим навигации - получить код действия
                 action_code = OllamaService.get_action_code(question, model)
                 action_description = ACTIONS_MAP.get(
                     action_code,
                     "Неизвестное действие",
                 )
-                # Increment request counter
                 profile.increment_requests()
-
                 return Response(
                     {
                         "question": question,
@@ -169,12 +377,9 @@ class AskLLMView(APIView):
                     },
                     status=status.HTTP_200_OK,
                 )
-            # Обычный режим чата - получить полный ответ
+
             answer = OllamaService.generate_response(question, model)
-
-            # Increment request counter
             profile.increment_requests()
-
             return Response(
                 {
                     "question": question,
@@ -189,9 +394,8 @@ class AskLLMView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
-
         except Exception as e:
-            logger.exception(f"Ошибка в обработке LLM: {e!s}")  # noqa: G004
+            logger.exception("Ошибка в обработке LLM: %s", e)
             return Response(
                 {"error": f"LLM processing error: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -199,33 +403,19 @@ class AskLLMView(APIView):
 
 
 class GetAvailableModelsView(APIView):
-    """
-    Получить список доступных моделей в Ollama
-
-    GET /api/llm/models/
-    """
-
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
-        """Получить доступные модели"""
         try:
-            all_models = (
-                OllamaService.list_available_models()
-            )  # Filter models based on user role
+            all_models = OllamaService.list_available_models()
             if hasattr(request.user, "profile"):
                 available_models = request.user.profile.get_available_models()
                 models = all_models if available_models == "all" else available_models
             else:
-                # Fallback if profile doesn't exist
                 models = ["alibayram/smollm3"]
-
-            return Response(
-                {"models": models},
-                status=status.HTTP_200_OK,
-            )
+            return Response({"models": models}, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.exception(f"Ошибка при получении моделей: {e!s}")  # noqa: G004
+            logger.exception("Ошибка при получении моделей: %s", e)
             return Response(
                 {"models": ["alibayram/smollm3"]},
                 status=status.HTTP_200_OK,
@@ -233,17 +423,7 @@ class GetAvailableModelsView(APIView):
 
 
 class GetActionsMapView(APIView):
-    """
-    Получить список всех доступных кодов действий
-
-    GET /api/llm/actions/
-    """
-
     permission_classes = (AllowAny,)
 
     def get(self, request):
-        """Получить ACTIONS_MAP"""
-        return Response(
-            {"actions": ACTIONS_MAP},
-            status=status.HTTP_200_OK,
-        )
+        return Response({"actions": ACTIONS_MAP}, status=status.HTTP_200_OK)

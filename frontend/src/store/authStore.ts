@@ -11,6 +11,7 @@ interface UserProfile {
   can_make_request: boolean;
   requests_remaining: number | 'unlimited';
   available_models: string[] | 'all';
+  avatar_url: string | null;
 }
 
 interface User {
@@ -39,6 +40,9 @@ interface AuthStore {
   logout: () => void;
   fetchUser: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
+  updateProfile: (data: { first_name?: string; last_name?: string }) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
+  deleteAvatar: () => Promise<void>;
   setUser: (user: User) => void;
   clearError: () => void;
   refreshAccessToken: () => Promise<void>;
@@ -154,8 +158,37 @@ export const useAuthStore = create<AuthStore>()(
           set({ user: response.data, isAuthenticated: true });
         } catch (error: unknown) {
           console.error('Failed to refresh user profile:', error);
-          // Не выбрасываем ошибку, чтобы не прерывать работу приложения
         }
+      },
+
+      updateProfile: async (data) => {
+        // Не трогаем глобальный isLoading — иначе App.tsx размонтирует Router
+        try {
+          const response = await api.patch<User>('/users/me/', data);
+          set({ user: response.data });
+        } catch (error: unknown) {
+          let message = 'Ошибка обновления профиля';
+          if (isAxiosError<ApiError>(error)) {
+            const detail = error.response?.data?.detail;
+            if (typeof detail === 'string') message = detail;
+          }
+          set({ error: message });
+          throw error;
+        }
+      },
+
+      uploadAvatar: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await api.post<User>('/users/me/avatar/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        set({ user: response.data });
+      },
+
+      deleteAvatar: async () => {
+        const response = await api.delete<User>('/users/me/avatar/');
+        set({ user: response.data });
       },
 
       setUser: (user) => {

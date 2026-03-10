@@ -49,6 +49,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <nav className="hidden sm:flex gap-6 items-center">
             <NavLink to="/">Главная</NavLink>
             <NavLink to="/about">О нас</NavLink>
+            <NavLink to="/products">Каталог</NavLink>
 
             {isAuthenticated && user ? (
               <>

@@ -7,7 +7,7 @@ import './llmChat.css';
 
 const FloatingLLMChat: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated, refreshUserProfile } = useAuthStore();
+  const { isAuthenticated, refreshUserProfile } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
@@ -22,24 +22,28 @@ const FloatingLLMChat: React.FC = () => {
   const [isResizing, setIsResizing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null); // Загрузить доступные модели и карту действий при монтировании
+  const containerRef = useRef<HTMLDivElement>(null);
+  const modelsLoadedRef = useRef(false);
+
+  // Load available models once when the user first becomes authenticated.
+  // We intentionally keep `isAuthenticated` as the only dependency so that
+  // a new `user` object reference (caused by profile refreshes / me/ calls)
+  // does NOT trigger another models/ request.
   useEffect(() => {
-    // Загружаем данные только если пользователь авторизован
     if (!isAuthenticated) {
+      // Reset so models are re-fetched after a fresh login
+      modelsLoadedRef.current = false;
       return;
     }
+    if (modelsLoadedRef.current) return;
 
+    modelsLoadedRef.current = true;
     const loadData = async () => {
       try {
         const models = await llmService.getAvailableModels();
         setAvailableModels(models);
         if (models.length > 0) {
           setSelectedModel(models[0]);
-        }
-
-        // Set initial requests remaining from user profile
-        if (user?.profile) {
-          setRequestsRemaining(user.profile.requests_remaining);
         }
       } catch (err) {
         console.error('Failed to load LLM data:', err);
@@ -61,7 +65,7 @@ const FloatingLLMChat: React.FC = () => {
       attributeFilter: ['class'],
     });
     return () => observer.disconnect();
-  }, [user, isAuthenticated]);
+  }, [isAuthenticated]);
 
   // Автоскролл к последнему сообщению
   useEffect(() => {
