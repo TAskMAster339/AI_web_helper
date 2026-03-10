@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import GlassConfirmModal from './GlassConfirmModal';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, logout, fetchUser, updateProfile, uploadAvatar, deleteAvatar } = useAuthStore();
 
-  // ── Edit state ────────────────────────────────────────────────
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -14,17 +14,16 @@ export default function Dashboard() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // ── Avatar state ──────────────────────────────────────────────
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarLightbox, setAvatarLightbox] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showDeleteAvatarConfirm, setShowDeleteAvatarConfirm] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user?.email) fetchUser();
   }, []);
-
-  // Close lightbox on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setAvatarLightbox(false);
@@ -32,8 +31,6 @@ export default function Dashboard() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
-
-  // Sync form fields when user loads or editing starts
   useEffect(() => {
     if (user) {
       setFirstName(user.first_name ?? '');
@@ -42,13 +39,12 @@ export default function Dashboard() {
   }, [user]);
 
   const handleLogout = async () => {
+    setShowLogoutConfirm(false);
     await logout();
     navigate('/login');
   };
-
   const handleEditToggle = () => {
     if (editing) {
-      // cancel — reset to current values
       setFirstName(user?.first_name ?? '');
       setLastName(user?.last_name ?? '');
       setSaveError(null);
@@ -56,7 +52,6 @@ export default function Dashboard() {
     setEditing((e) => !e);
     setSaveSuccess(false);
   };
-
   const handleSave = async () => {
     setSaving(true);
     setSaveError(null);
@@ -71,7 +66,6 @@ export default function Dashboard() {
       setSaving(false);
     }
   };
-
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -83,12 +77,11 @@ export default function Dashboard() {
       setAvatarError('Не удалось загрузить аватар');
     } finally {
       setAvatarUploading(false);
-      // reset input so same file can be re-selected
       if (avatarInputRef.current) avatarInputRef.current.value = '';
     }
   };
-
   const handleDeleteAvatar = async () => {
+    setShowDeleteAvatarConfirm(false);
     setAvatarError(null);
     setAvatarUploading(true);
     try {
@@ -108,26 +101,25 @@ export default function Dashboard() {
       .join('') ||
     user?.username?.[0]?.toUpperCase() ||
     '?';
-
   const displayName =
     [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username || '';
 
   return (
     <>
-      {/* ── Avatar lightbox ── */}
+      {/* Lightbox */}
       {avatarLightbox && avatarUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md"
           onClick={() => setAvatarLightbox(false)}
         >
           <div
-            className="relative flex flex-col items-center gap-4"
+            className="relative flex flex-col items-center gap-4 slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             <img
               src={avatarUrl}
               alt="avatar"
-              className="w-72 h-72 rounded-full object-cover ring-4 ring-white/30 shadow-2xl"
+              className="w-72 h-72 rounded-full object-cover ring-4 ring-white/20 shadow-2xl"
             />
             {displayName && (
               <p className="text-white font-semibold text-lg drop-shadow">{displayName}</p>
@@ -150,17 +142,28 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="max-w-3xl mx-auto p-6 mt-10">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          {/* ── Header band ── */}
-          <div className="h-24 bg-gradient-to-r from-blue-600 to-indigo-600" />
+      <div className="max-w-3xl mx-auto slide-up">
+        <div className="glass overflow-hidden">
+          {/* Header band */}
+          <div
+            className="h-24"
+            style={{ background: 'linear-gradient(135deg, var(--accent) 0%, #8b5cf6 100%)' }}
+          />
 
-          {/* ── Avatar + name row ── */}
-          <div className="px-8 pb-6">
+          <div className="px-8 pb-8">
+            {/* Avatar + actions row */}
             <div className="flex items-end justify-between -mt-12 mb-6">
-              {/* Avatar */}
               <div className="relative group">
-                <div className="w-24 h-24 rounded-full ring-4 ring-white dark:ring-gray-900 overflow-hidden bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-3xl font-bold text-blue-600 dark:text-blue-300 select-none">
+                <div
+                  className="w-24 h-24 rounded-full ring-4 overflow-hidden flex items-center justify-center text-3xl font-bold select-none"
+                  style={
+                    {
+                      background: avatarUrl ? 'var(--accent-soft)' : 'var(--avatar-placeholder-bg)',
+                      color: avatarUrl ? 'var(--accent)' : 'var(--avatar-placeholder-color)',
+                      '--tw-ring-color': 'var(--bg-base)',
+                    } as React.CSSProperties
+                  }
+                >
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -172,13 +175,12 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-                {/* Overlay buttons on hover */}
                 {!avatarUploading && (
                   <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
                     {avatarUrl && (
                       <button
                         onClick={() => setAvatarLightbox(true)}
-                        title="Просмотреть фото"
+                        title="Просмотреть"
                         className="p-1.5 bg-white/90 rounded-full text-gray-700 hover:bg-white transition"
                       >
                         <svg
@@ -204,7 +206,7 @@ export default function Dashboard() {
                     )}
                     <button
                       onClick={() => avatarInputRef.current?.click()}
-                      title="Загрузить фото"
+                      title="Загрузить"
                       className="p-1.5 bg-white/90 rounded-full text-gray-700 hover:bg-white transition"
                     >
                       <svg
@@ -223,9 +225,10 @@ export default function Dashboard() {
                     </button>
                     {avatarUrl && (
                       <button
-                        onClick={handleDeleteAvatar}
-                        title="Удалить фото"
-                        className="p-1.5 bg-white/90 rounded-full text-red-600 hover:bg-white transition"
+                        onClick={() => setShowDeleteAvatarConfirm(true)}
+                        title="Удалить"
+                        className="p-1.5 bg-white/90 rounded-full hover:bg-white transition"
+                        style={{ color: 'var(--error)' }}
                       >
                         <svg
                           className="w-4 h-4"
@@ -253,14 +256,13 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* Edit / Save button */}
               <div className="flex gap-2 mt-2">
                 {editing ? (
                   <>
                     <button
                       onClick={handleSave}
                       disabled={saving}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition flex items-center gap-1.5"
+                      className="btn-primary px-4 py-2 rounded-lg text-sm flex items-center gap-1.5"
                     >
                       {saving ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -283,7 +285,7 @@ export default function Dashboard() {
                     </button>
                     <button
                       onClick={handleEditToggle}
-                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                      className="btn-ghost px-4 py-2 rounded-lg text-sm"
                     >
                       Отмена
                     </button>
@@ -291,7 +293,7 @@ export default function Dashboard() {
                 ) : (
                   <button
                     onClick={handleEditToggle}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center gap-1.5"
+                    className="btn-ghost px-4 py-2 rounded-lg text-sm flex items-center gap-1.5"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -309,17 +311,38 @@ export default function Dashboard() {
 
             {/* Alerts */}
             {avatarError && (
-              <div className="mb-4 px-4 py-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">
+              <div
+                className="mb-4 p-3 rounded-lg text-sm"
+                style={{
+                  background: 'var(--error-soft)',
+                  border: '1px solid var(--error)',
+                  color: 'var(--error)',
+                }}
+              >
                 {avatarError}
               </div>
             )}
             {saveError && (
-              <div className="mb-4 px-4 py-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">
+              <div
+                className="mb-4 p-3 rounded-lg text-sm"
+                style={{
+                  background: 'var(--error-soft)',
+                  border: '1px solid var(--error)',
+                  color: 'var(--error)',
+                }}
+              >
                 {saveError}
               </div>
             )}
             {saveSuccess && (
-              <div className="mb-4 px-4 py-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-lg text-sm flex items-center gap-2">
+              <div
+                className="mb-4 p-3 rounded-lg text-sm flex items-center gap-2"
+                style={{
+                  background: 'var(--success-soft)',
+                  border: '1px solid var(--success)',
+                  color: 'var(--success)',
+                }}
+              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -332,36 +355,44 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* ── Profile fields ── */}
+            {/* Profile fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Username — read only */}
-              <Field label="Имя пользователя" value={user?.username ?? '—'} readOnly />
-              {/* Email — read only */}
-              <Field label="Email" value={user?.email ?? '—'} readOnly />
+              <GlassField label="Имя пользователя" value={user?.username ?? '—'} readOnly />
+              <GlassField label="Email" value={user?.email ?? '—'} readOnly />
 
-              {/* First name */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Имя</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                  Имя
+                </label>
                 {editing ? (
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="Введите имя"
-                    className="px-3 py-2 rounded-lg border border-blue-400 dark:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-sm"
+                    style={{ borderColor: 'var(--accent)' }}
                   />
                 ) : (
-                  <p className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  <p
+                    className="px-3 py-2 rounded-lg text-sm font-semibold"
+                    style={{
+                      background: 'var(--glass-bg)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
                     {user?.first_name || (
-                      <span className="text-gray-400 font-normal">не указано</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                        не указано
+                      </span>
                     )}
                   </p>
                 )}
               </div>
 
-              {/* Last name */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
                   Фамилия
                 </label>
                 {editing ? (
@@ -370,46 +401,68 @@ export default function Dashboard() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Введите фамилию"
-                    className="px-3 py-2 rounded-lg border border-blue-400 dark:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-sm"
+                    style={{ borderColor: 'var(--accent)' }}
                   />
                 ) : (
-                  <p className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  <p
+                    className="px-3 py-2 rounded-lg text-sm font-semibold"
+                    style={{
+                      background: 'var(--glass-bg)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
                     {user?.last_name || (
-                      <span className="text-gray-400 font-normal">не указано</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                        не указано
+                      </span>
                     )}
                   </p>
                 )}
               </div>
 
-              {/* Role — read only */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Роль</label>
-                <div className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                  Роль
+                </label>
+                <div
+                  className="px-3 py-2 rounded-lg"
+                  style={{ background: 'var(--glass-bg)', border: '1px solid var(--border)' }}
+                >
                   <RoleBadge role={user?.profile?.role} display={user?.profile?.role_display} />
                 </div>
               </div>
             </div>
 
-            {/* ── AI stats ── */}
+            {/* AI stats */}
             {user?.profile && (
-              <div className="mt-6 p-5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
+              <div
+                className="mt-6 p-5 rounded-xl"
+                style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)' }}
+              >
+                <h3
+                  className="text-xs font-semibold uppercase tracking-wider mb-3"
+                  style={{ color: 'var(--text-muted)' }}
+                >
                   Статистика запросов к AI
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       Использовано сегодня
                     </div>
-                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                       {user.profile.role === 'user'
                         ? `${user.profile.daily_requests_used} / ${user.profile.daily_requests_limit}`
                         : '∞'}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Доступные модели</div>
-                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Доступные модели
+                    </div>
+                    <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
                       {user.profile.available_models === 'all'
                         ? 'Все'
                         : user.profile.available_models?.length || 1}
@@ -417,19 +470,23 @@ export default function Dashboard() {
                   </div>
                 </div>
                 {user.profile.role === 'user' && (
-                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                  <p className="mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                     💡 Обновите до Premium для неограниченных запросов и доступа ко всем моделям!
                   </p>
                 )}
               </div>
             )}
 
-            {/* ── Admin link ── */}
+            {/* Admin link */}
             {user?.profile?.role === 'admin' && (
-              <div className="mt-5">
+              <div className="mt-5 flex justify-center">
                 <Link
                   to="/admin"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition shadow-md text-sm font-semibold"
+                  className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm"
+                  style={{
+                    background: 'linear-gradient(135deg, #8b5cf6, var(--accent))',
+                    boxShadow: '0 2px 12px rgba(139,92,246,0.3)',
+                  }}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -444,40 +501,73 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* ── Bottom actions ── */}
-            <div className="mt-8 flex gap-3">
+            {/* Bottom actions */}
+            <div className="mt-8 flex gap-3 justify-center">
               <button
-                onClick={handleLogout}
-                className="px-5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                onClick={() => setShowLogoutConfirm(true)}
+                className="btn-danger-ghost px-5 py-2 rounded-lg text-sm"
               >
                 Выйти
               </button>
-              <Link
-                to="/"
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition shadow"
-              >
+              <Link to="/" className="btn-primary px-5 py-2 rounded-lg text-sm">
                 На главную
               </Link>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Logout confirmation */}
+      <GlassConfirmModal
+        open={showLogoutConfirm}
+        title="Выйти из аккаунта?"
+        message="Вы уверены, что хотите выйти? Вам нужно будет войти снова."
+        confirmLabel="Выйти"
+        cancelLabel="Отмена"
+        variant="warning"
+        icon="🚪"
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
+
+      {/* Delete avatar confirmation */}
+      <GlassConfirmModal
+        open={showDeleteAvatarConfirm}
+        title="Удалить аватар?"
+        message="Текущий аватар будет удалён. Вы сможете загрузить новый позже."
+        confirmLabel="Удалить"
+        cancelLabel="Отмена"
+        variant="danger"
+        icon="🗑️"
+        onConfirm={handleDeleteAvatar}
+        onCancel={() => setShowDeleteAvatarConfirm(false)}
+      />
     </>
   );
 }
 
-// ── Helper components ─────────────────────────────────────────
-
-function Field({ label, value, readOnly }: { label: string; value: string; readOnly?: boolean }) {
+function GlassField({
+  label,
+  value,
+  readOnly,
+}: {
+  label: string;
+  value: string;
+  readOnly?: boolean;
+}) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</label>
+      <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </label>
       <p
-        className={`px-3 py-2 rounded-lg border text-sm font-semibold text-gray-900 dark:text-gray-100 ${
-          readOnly
-            ? 'bg-gray-100 dark:bg-gray-700/60 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 font-normal cursor-not-allowed'
-            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-        }`}
+        className="px-3 py-2 rounded-lg text-sm"
+        style={{
+          background: readOnly ? 'var(--bg-surface)' : 'var(--glass-bg)',
+          border: '1px solid var(--border)',
+          color: readOnly ? 'var(--text-muted)' : 'var(--text-primary)',
+          cursor: readOnly ? 'not-allowed' : 'default',
+        }}
       >
         {value}
       </p>
@@ -486,14 +576,16 @@ function Field({ label, value, readOnly }: { label: string; value: string; readO
 }
 
 function RoleBadge({ role, display }: { role?: string; display?: string }) {
-  const colors: Record<string, string> = {
-    admin: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-    premium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
-    user: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+  const styles: Record<string, { bg: string; color: string }> = {
+    admin: { bg: 'var(--error-soft)', color: 'var(--error)' },
+    premium: { bg: 'var(--warning-soft)', color: 'var(--warning)' },
+    user: { bg: 'var(--accent-soft)', color: 'var(--accent)' },
   };
+  const s = styles[role ?? 'user'] ?? styles.user;
   return (
     <span
-      className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${colors[role ?? 'user'] ?? colors.user}`}
+      className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold"
+      style={{ background: s.bg, color: s.color }}
     >
       {display ?? role ?? '—'}
     </span>

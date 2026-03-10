@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
+import GlassConfirmModal from './GlassConfirmModal';
 
 interface UserProfile {
   role: 'user' | 'premium' | 'admin';
@@ -21,11 +22,45 @@ interface PublicUser {
   profile: UserProfile;
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  admin: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-  premium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
-  user: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-};
+/* ── Role badge ── */
+function RoleBadge({ role, label }: { role: string; label: string }) {
+  const map: Record<string, { bg: string; color: string }> = {
+    admin: { bg: 'var(--error-soft)', color: 'var(--error)' },
+    premium: { bg: 'var(--warning-soft)', color: 'var(--warning)' },
+    user: { bg: 'var(--accent-soft)', color: 'var(--accent)' },
+  };
+  const t = map[role] ?? map.user;
+  return (
+    <span
+      className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold"
+      style={{ background: t.bg, color: t.color }}
+    >
+      {label}
+    </span>
+  );
+}
+
+/* ── Readonly glass field ── */
+function GlassField({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </label>
+      <p
+        className="px-3 py-2 rounded-lg text-sm"
+        style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          color: muted ? 'var(--text-muted)' : 'var(--text-primary)',
+          cursor: muted ? 'not-allowed' : undefined,
+        }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
 
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
@@ -45,6 +80,7 @@ export default function UserProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   // Lightbox
   const [lightbox, setLightbox] = useState(false);
@@ -102,20 +138,28 @@ export default function UserProfilePage() {
     setEditing(false);
   };
 
+  /* ── Loading skeleton ── */
   if (loading) {
     return (
       <div className="max-w-2xl mx-auto p-6 mt-10 animate-pulse">
-        <div className="h-24 bg-gray-200 dark:bg-gray-700 rounded-2xl mb-4" />
-        <div className="h-40 bg-gray-100 dark:bg-gray-800 rounded-2xl" />
+        <div className="h-24 rounded-2xl mb-4" style={{ background: 'var(--bg-surface)' }} />
+        <div className="h-40 rounded-2xl" style={{ background: 'var(--bg-surface)' }} />
       </div>
     );
   }
 
+  /* ── Error state ── */
   if (error || !profileUser) {
     return (
       <div className="max-w-2xl mx-auto p-6 mt-10 text-center">
-        <p className="text-red-500 text-lg mb-4">{error ?? 'Пользователь не найден'}</p>
-        <button onClick={() => navigate(-1)} className="text-blue-600 hover:underline">
+        <p className="text-lg mb-4" style={{ color: 'var(--error)' }}>
+          {error ?? 'Пользователь не найден'}
+        </p>
+        <button
+          onClick={() => navigate(-1)}
+          className="text-sm font-medium transition-colors"
+          style={{ color: 'var(--accent)' }}
+        >
           ← Назад
         </button>
       </div>
@@ -135,7 +179,7 @@ export default function UserProfilePage() {
 
   return (
     <>
-      {/* Lightbox */}
+      {/* ── Lightbox ── */}
       {lightbox && avatarUrl && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
@@ -148,12 +192,14 @@ export default function UserProfilePage() {
             <img
               src={avatarUrl}
               alt={displayName}
-              className="w-72 h-72 rounded-full object-cover ring-4 ring-white/30 shadow-2xl"
+              className="w-72 h-72 rounded-full object-cover shadow-2xl"
+              style={{ boxShadow: '0 0 0 4px var(--accent-glow)' }}
             />
             <p className="text-white font-semibold text-lg drop-shadow">{displayName}</p>
             <button
               onClick={() => setLightbox(false)}
-              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition"
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center transition"
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff' }}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -168,11 +214,14 @@ export default function UserProfilePage() {
         </div>
       )}
 
-      <div className="max-w-2xl mx-auto p-6 mt-10">
+      <div className="max-w-2xl mx-auto p-6 mt-10 slide-up">
         {/* Back */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition mb-6"
+          className="flex items-center gap-1.5 text-sm font-medium transition-colors mb-6"
+          style={{ color: 'var(--text-muted)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -185,16 +234,24 @@ export default function UserProfilePage() {
           Назад
         </button>
 
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="glass overflow-hidden">
           {/* Header band */}
-          <div className="h-24 bg-gradient-to-r from-indigo-500 to-purple-600" />
+          <div
+            className="h-24"
+            style={{ background: 'linear-gradient(135deg, var(--accent), #a855f7)' }}
+          />
 
           <div className="px-8 pb-8">
             {/* Avatar row */}
             <div className="flex items-end justify-between -mt-12 mb-6">
               {/* Avatar */}
               <div
-                className={`w-24 h-24 rounded-full ring-4 ring-white dark:ring-gray-900 overflow-hidden bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-3xl font-bold text-blue-600 dark:text-blue-300 select-none ${avatarUrl ? 'cursor-pointer' : ''}`}
+                className={`w-24 h-24 rounded-full overflow-hidden flex items-center justify-center text-3xl font-bold select-none ${avatarUrl ? 'cursor-pointer' : ''}`}
+                style={{
+                  background: avatarUrl ? 'var(--accent-soft)' : 'var(--avatar-placeholder-bg)',
+                  color: avatarUrl ? 'var(--accent)' : 'var(--avatar-placeholder-color)',
+                  boxShadow: '0 0 0 4px var(--bg-base)',
+                }}
                 onClick={() => avatarUrl && setLightbox(true)}
                 title={avatarUrl ? 'Нажмите для просмотра' : undefined}
               >
@@ -205,20 +262,17 @@ export default function UserProfilePage() {
                 )}
               </div>
 
-              {/* Admin actions */}
+              {/* Action buttons */}
               <div className="flex gap-2 mt-2">
                 {isOwnProfile && (
-                  <Link
-                    to="/dashboard"
-                    className="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-                  >
+                  <Link to="/dashboard" className="btn-ghost px-4 py-2 text-sm rounded-lg">
                     Редактировать профиль
                   </Link>
                 )}
                 {isAdmin && !isOwnProfile && !editing && (
                   <button
                     onClick={() => setEditing(true)}
-                    className="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition flex items-center gap-1.5"
+                    className="btn-ghost px-4 py-2 text-sm rounded-lg flex items-center gap-1.5"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -234,9 +288,9 @@ export default function UserProfilePage() {
                 {isAdmin && editing && (
                   <>
                     <button
-                      onClick={handleSave}
+                      onClick={() => setShowSaveConfirm(true)}
                       disabled={saving}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition flex items-center gap-1.5"
+                      className="btn-primary px-4 py-2 text-sm rounded-lg flex items-center gap-1.5"
                     >
                       {saving ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -259,7 +313,7 @@ export default function UserProfilePage() {
                     </button>
                     <button
                       onClick={handleCancel}
-                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                      className="btn-ghost px-4 py-2 text-sm rounded-lg"
                     >
                       Отмена
                     </button>
@@ -270,12 +324,26 @@ export default function UserProfilePage() {
 
             {/* Alerts */}
             {saveError && (
-              <div className="mb-4 px-4 py-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">
+              <div
+                className="mb-4 px-4 py-2.5 rounded-lg text-sm"
+                style={{
+                  background: 'var(--error-soft)',
+                  border: '1px solid var(--error)',
+                  color: 'var(--error)',
+                }}
+              >
                 {saveError}
               </div>
             )}
             {saveSuccess && (
-              <div className="mb-4 px-4 py-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 rounded-lg text-sm flex items-center gap-2">
+              <div
+                className="mb-4 px-4 py-2.5 rounded-lg text-sm flex items-center gap-2"
+                style={{
+                  background: 'var(--success-soft)',
+                  border: '1px solid var(--success)',
+                  color: 'var(--success)',
+                }}
+              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -291,28 +359,38 @@ export default function UserProfilePage() {
             {/* Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Username */}
-              <ReadonlyField label="Имя пользователя" value={profileUser.username} />
+              <GlassField label="Имя пользователя" value={profileUser.username} muted />
 
               {/* Email — only visible to admin or own */}
               {(isAdmin || isOwnProfile) && (
-                <ReadonlyField label="Email" value={profileUser.email} />
+                <GlassField label="Email" value={profileUser.email} muted />
               )}
 
               {/* First name */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Имя</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                  Имя
+                </label>
                 {editing ? (
                   <input
                     type="text"
                     value={editFirstName}
                     onChange={(e) => setEditFirstName(e.target.value)}
                     placeholder="Введите имя"
-                    className="px-3 py-2 rounded-lg border border-blue-400 dark:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 ) : (
-                  <p className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  <p
+                    className="px-3 py-2 rounded-lg text-sm font-semibold"
+                    style={{
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
                     {profileUser.first_name || (
-                      <span className="text-gray-400 font-normal">не указано</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                        не указано
+                      </span>
                     )}
                   </p>
                 )}
@@ -320,7 +398,7 @@ export default function UserProfilePage() {
 
               {/* Last name */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
                   Фамилия
                 </label>
                 {editing ? (
@@ -329,12 +407,20 @@ export default function UserProfilePage() {
                     value={editLastName}
                     onChange={(e) => setEditLastName(e.target.value)}
                     placeholder="Введите фамилию"
-                    className="px-3 py-2 rounded-lg border border-blue-400 dark:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 ) : (
-                  <p className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  <p
+                    className="px-3 py-2 rounded-lg text-sm font-semibold"
+                    style={{
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
                     {profileUser.last_name || (
-                      <span className="text-gray-400 font-normal">не указано</span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                        не указано
+                      </span>
                     )}
                   </p>
                 )}
@@ -342,24 +428,27 @@ export default function UserProfilePage() {
 
               {/* Role */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Роль</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                  Роль
+                </label>
                 {editing ? (
                   <select
                     value={editRole}
                     onChange={(e) => setEditRole(e.target.value as typeof editRole)}
-                    className="px-3 py-2 rounded-lg border border-blue-400 dark:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="user">Обычный пользователь</option>
                     <option value="premium">Premium</option>
                     <option value="admin">Администратор</option>
                   </select>
                 ) : (
-                  <div className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <span
-                      className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${ROLE_COLORS[profileUser.profile.role] ?? ROLE_COLORS.user}`}
-                    >
-                      {profileUser.profile.role_display}
-                    </span>
+                  <div
+                    className="px-3 py-2 rounded-lg"
+                    style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+                  >
+                    <RoleBadge
+                      role={profileUser.profile.role}
+                      label={profileUser.profile.role_display}
+                    />
                   </div>
                 )}
               </div>
@@ -367,17 +456,22 @@ export default function UserProfilePage() {
           </div>
         </div>
       </div>
-    </>
-  );
-}
 
-function ReadonlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</label>
-      <p className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700/60 text-sm text-gray-500 dark:text-gray-400 cursor-not-allowed">
-        {value}
-      </p>
-    </div>
+      {/* Save confirmation modal */}
+      <GlassConfirmModal
+        open={showSaveConfirm}
+        title="Сохранить изменения?"
+        message={`Профиль пользователя «${profileUser.username}» будет обновлён. Продолжить?`}
+        confirmLabel="Сохранить"
+        cancelLabel="Отмена"
+        variant="info"
+        icon="💾"
+        onConfirm={() => {
+          setShowSaveConfirm(false);
+          handleSave();
+        }}
+        onCancel={() => setShowSaveConfirm(false)}
+      />
+    </>
   );
 }

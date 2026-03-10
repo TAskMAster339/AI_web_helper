@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import llmService, { type ChatMessage } from '../services/llmService';
 import { useAuthStore } from '../store/authStore';
 import { createActionHandlers, executeAction } from '../utils/actionHandlers';
+import GlassConfirmModal from './GlassConfirmModal';
 import './llmChat.css';
 
 const FloatingLLMChat: React.FC = () => {
@@ -16,10 +17,10 @@ const FloatingLLMChat: React.FC = () => {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [requestsRemaining, setRequestsRemaining] = useState<number | 'unlimited'>('unlimited');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [width, setWidth] = useState(420);
   const [height, setHeight] = useState(600);
   const [isResizing, setIsResizing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,19 +53,7 @@ const FloatingLLMChat: React.FC = () => {
 
     loadData();
 
-    const checkDarkMode = () => {
-      const isDark = document.documentElement.classList.contains('dark');
-      setIsDarkMode(isDark);
-    };
-
-    checkDarkMode();
-
-    const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-    return () => observer.disconnect();
+    return undefined;
   }, [isAuthenticated]);
 
   // Автоскролл к последнему сообщению
@@ -181,10 +170,13 @@ const FloatingLLMChat: React.FC = () => {
   };
 
   const handleClearChat = () => {
-    if (window.confirm('Вы уверены, что хотите очистить все сообщения?')) {
-      setMessages([]);
-      setError(null);
-    }
+    setShowClearConfirm(true);
+  };
+
+  const confirmClearChat = () => {
+    setMessages([]);
+    setError(null);
+    setShowClearConfirm(false);
   };
 
   return (
@@ -203,7 +195,7 @@ const FloatingLLMChat: React.FC = () => {
       {isOpen && (
         <div
           ref={containerRef}
-          className={`floating-chat-container ${isDarkMode ? 'dark' : ''}`}
+          className="floating-chat-container"
           style={{
             width: `${width}px`,
             height: `${height}px`,
@@ -248,7 +240,7 @@ const FloatingLLMChat: React.FC = () => {
             </div>
           )}
 
-          <div className={`floating-chat-messages ${isDarkMode ? 'dark' : ''}`}>
+          <div className="floating-chat-messages">
             {messages.length === 0 ? (
               <div className="empty-state">
                 <p>👋 Начните разговор с ассистентом ИИ</p>
@@ -264,12 +256,12 @@ const FloatingLLMChat: React.FC = () => {
                     <p className="message-text">{msg.question}</p>
                   </div>
                   {msg.answer && (
-                    <div className={`message ai-message ${isDarkMode ? 'dark' : ''}`}>
+                    <div className="message ai-message">
                       <p className="message-text">{msg.answer}</p>
                     </div>
                   )}
                   {!msg.answer && (
-                    <div className={`message ai-message loading ${isDarkMode ? 'dark' : ''}`}>
+                    <div className="message ai-message loading">
                       <span className="typing-indicator">
                         <span></span>
                         <span></span>
@@ -283,17 +275,14 @@ const FloatingLLMChat: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className={`floating-chat-form ${isDarkMode ? 'dark' : ''}`}
-          >
+          <form onSubmit={handleSubmit} className="floating-chat-form">
             <input
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Спросите меня о чём-нибудь..."
               disabled={loading}
-              className={`question-input ${isDarkMode ? 'dark' : ''}`}
+              className="question-input"
               autoFocus
             />
             <button
@@ -317,6 +306,18 @@ const FloatingLLMChat: React.FC = () => {
           </form>
         </div>
       )}
+
+      <GlassConfirmModal
+        open={showClearConfirm}
+        title="Очистить чат?"
+        message="Все сообщения будут удалены. Это действие нельзя отменить."
+        confirmLabel="Очистить"
+        cancelLabel="Отмена"
+        variant="warning"
+        icon="🧹"
+        onConfirm={confirmClearChat}
+        onCancel={() => setShowClearConfirm(false)}
+      />
     </div>
   );
 };

@@ -5,17 +5,19 @@ export default function RegisterInfo() {
   const email = location.state?.email || '';
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl border-2 border-gray-200 dark:border-gray-700 p-8">
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="max-w-lg w-full glass p-8 slide-up">
         <div className="text-center mb-6">
-          {/* Success Icon */}
-          <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+          <div
+            className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-4"
+            style={{ background: 'var(--success-soft)' }}
+          >
             <svg
-              className="w-8 h-8 text-green-600 dark:text-green-400"
+              className="w-7 h-7"
+              style={{ color: 'var(--success)' }}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
             >
               <path
                 strokeLinecap="round"
@@ -25,23 +27,25 @@ export default function RegisterInfo() {
               />
             </svg>
           </div>
-
-          <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
             Подтвердите вашу почту
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p style={{ color: 'var(--text-muted)' }}>
             Осталось совсем немного до завершения регистрации
           </p>
         </div>
 
-        <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-800 rounded-lg mb-6">
+        <div
+          className="p-5 rounded-lg mb-5"
+          style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)' }}
+        >
           <div className="flex items-start gap-3">
             <svg
-              className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5"
+              className="w-5 h-5 flex-shrink-0 mt-0.5"
+              style={{ color: 'var(--accent)' }}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
             >
               <path
                 strokeLinecap="round"
@@ -50,45 +54,53 @@ export default function RegisterInfo() {
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <div className="flex-1">
-              <p className="text-gray-900 dark:text-gray-100 font-medium mb-2">
-                На указанный вами email{' '}
+            <div className="flex-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <p className="mb-2">
+                На email{' '}
                 {email && (
-                  <span className="font-bold text-blue-600 dark:text-blue-400">{email}</span>
+                  <span className="font-bold" style={{ color: 'var(--accent)' }}>
+                    {email}
+                  </span>
                 )}{' '}
-                отправлено письмо с ссылкой подтверждения регистрации.
+                отправлено письмо с ссылкой подтверждения.
               </p>
-              <p className="text-gray-700 dark:text-gray-300 mb-3">
-                Пожалуйста, откройте вашу почту и перейдите по ссылке из письма для активации
-                аккаунта.
-              </p>
-              <p className="text-gray-700 dark:text-gray-300">
-                После этого вы сможете войти в систему и пользоваться всеми возможностями AI Web
-                Helper.
-              </p>
+              <p className="mb-2">Откройте почту и перейдите по ссылке для активации аккаунта.</p>
+              <p>После этого вы сможете войти и пользоваться AI Web Helper.</p>
             </div>
           </div>
         </div>
 
-        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-800 rounded-lg mb-6">
-          <p className="text-sm text-gray-700 dark:text-gray-300">
+        <div
+          className="p-4 rounded-lg mb-6"
+          style={{ background: 'var(--warning-soft)', border: '1px solid var(--warning)' }}
+        >
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             <span className="font-semibold">💡 Не видите письмо?</span>
             <br />
-            Проверьте папку "Спам" или "Промоакции". Если письмо не пришло в течение 5 минут,
-            попробуйте зарегистрироваться заново.
+            Проверьте папку «Спам». Если письмо не пришло в течение 5 минут, попробуйте заново.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             to="/login"
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md hover:shadow-lg font-semibold text-center"
+            className="px-6 py-2.5 rounded-lg text-sm font-semibold text-white text-center transition-all"
+            style={{
+              background: 'var(--accent)',
+              color: '#fff',
+              boxShadow: '0 2px 8px var(--accent-glow)',
+            }}
           >
             Перейти к входу
           </Link>
           <Link
             to="/register"
-            className="px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition font-semibold text-center"
+            className="px-6 py-2.5 rounded-lg text-sm font-semibold text-center transition-all"
+            style={{
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--border-strong)',
+              color: 'var(--text-primary)',
+            }}
           >
             Зарегистрироваться заново
           </Link>

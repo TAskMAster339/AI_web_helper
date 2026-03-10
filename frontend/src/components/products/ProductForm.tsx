@@ -94,51 +94,76 @@ export default function ProductForm({
     });
   };
 
+  const errBorder = { borderColor: 'var(--error)' } as React.CSSProperties;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {saveError && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
+        <div
+          className="p-3 rounded-lg text-sm"
+          style={{
+            background: 'var(--error-soft)',
+            border: '1px solid var(--error)',
+            color: 'var(--error)',
+          }}
+        >
           {saveError}
         </div>
       )}
 
       {/* Title */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Название <span className="text-red-500">*</span>
+        <label
+          className="block text-sm font-medium mb-1"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          Название <span style={{ color: 'var(--error)' }}>*</span>
         </label>
         <input
           type="text"
           value={values.title}
           onChange={set('title')}
           placeholder="Введите название товара"
-          className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.title ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
+          style={fieldErrors.title ? errBorder : undefined}
         />
-        {fieldErrors.title && <p className="text-xs text-red-500 mt-1">{fieldErrors.title}</p>}
+        {fieldErrors.title && (
+          <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>
+            {fieldErrors.title}
+          </p>
+        )}
       </div>
 
       {/* Description */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Описание <span className="text-red-500">*</span>
+        <label
+          className="block text-sm font-medium mb-1"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          Описание <span style={{ color: 'var(--error)' }}>*</span>
         </label>
         <textarea
           value={values.description}
           onChange={set('description')}
           rows={4}
           placeholder="Подробное описание товара"
-          className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${fieldErrors.description ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
+          className="resize-y"
+          style={fieldErrors.description ? errBorder : undefined}
         />
         {fieldErrors.description && (
-          <p className="text-xs text-red-500 mt-1">{fieldErrors.description}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>
+            {fieldErrors.description}
+          </p>
         )}
       </div>
 
       {/* Price + Stock */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Цена (₽) <span className="text-red-500">*</span>
+          <label
+            className="block text-sm font-medium mb-1"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            Цена (₽) <span style={{ color: 'var(--error)' }}>*</span>
           </label>
           <input
             type="number"
@@ -147,12 +172,19 @@ export default function ProductForm({
             value={values.price}
             onChange={set('price')}
             placeholder="0.00"
-            className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.price ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
+            style={fieldErrors.price ? errBorder : undefined}
           />
-          {fieldErrors.price && <p className="text-xs text-red-500 mt-1">{fieldErrors.price}</p>}
+          {fieldErrors.price && (
+            <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>
+              {fieldErrors.price}
+            </p>
+          )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label
+            className="block text-sm font-medium mb-1"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             Остаток (шт.)
           </label>
           <input
@@ -161,22 +193,29 @@ export default function ProductForm({
             value={values.stock}
             onChange={set('stock')}
             placeholder="0"
-            className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.stock ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
+            style={fieldErrors.stock ? errBorder : undefined}
           />
-          {fieldErrors.stock && <p className="text-xs text-red-500 mt-1">{fieldErrors.stock}</p>}
+          {fieldErrors.stock && (
+            <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>
+              {fieldErrors.stock}
+            </p>
+          )}
         </div>
       </div>
 
       {/* Category + Status */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Категория <span className="text-red-500">*</span>
+          <label
+            className="block text-sm font-medium mb-1"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            Категория <span style={{ color: 'var(--error)' }}>*</span>
           </label>
           <select
             value={values.category}
             onChange={set('category')}
-            className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 ${fieldErrors.category ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
+            style={fieldErrors.category ? errBorder : undefined}
           >
             <option value="">Выберите...</option>
             {categories.map((c) => (
@@ -186,18 +225,19 @@ export default function ProductForm({
             ))}
           </select>
           {fieldErrors.category && (
-            <p className="text-xs text-red-500 mt-1">{fieldErrors.category}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>
+              {fieldErrors.category}
+            </p>
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label
+            className="block text-sm font-medium mb-1"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             Статус
           </label>
-          <select
-            value={values.status}
-            onChange={set('status')}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          <select value={values.status} onChange={set('status')}>
             <option value="draft">Черновик</option>
             <option value="published">Опубликован</option>
             <option value="archived">Архив</option>
@@ -210,7 +250,7 @@ export default function ProductForm({
         <button
           type="submit"
           disabled={isSaving}
-          className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg transition text-sm"
+          className="btn-primary flex-1 py-2.5 text-sm rounded-lg"
         >
           {isSaving ? 'Сохранение...' : submitLabel}
         </button>
@@ -218,7 +258,7 @@ export default function ProductForm({
           type="button"
           onClick={onCancel}
           disabled={isSaving}
-          className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition text-sm"
+          className="btn-ghost px-5 py-2.5 text-sm rounded-lg"
         >
           Отмена
         </button>

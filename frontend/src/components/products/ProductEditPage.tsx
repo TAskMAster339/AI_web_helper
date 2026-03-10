@@ -21,7 +21,6 @@ export default function ProductEditPage() {
     productApi
       .get(slug)
       .then((p) => {
-        // Only owner or admin can edit
         const isAdmin = user?.profile?.role === 'admin';
         if (p.author.id !== user?.id && !isAdmin) {
           navigate(`/products/${slug}`);
@@ -35,7 +34,7 @@ export default function ProductEditPage() {
   if (loadError) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <p className="text-red-500">{loadError}</p>
+        <p style={{ color: 'var(--error)' }}>{loadError}</p>
       </div>
     );
   }
@@ -43,10 +42,17 @@ export default function ProductEditPage() {
   if (!product) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="h-8 w-1/3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-6" />
+        <div
+          className="h-8 w-1/3 rounded animate-pulse mb-6"
+          style={{ background: 'var(--bg-surface)' }}
+        />
         <div className="space-y-4">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-10 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+            <div
+              key={i}
+              className="h-10 rounded animate-pulse"
+              style={{ background: 'var(--bg-surface)' }}
+            />
           ))}
         </div>
       </div>
@@ -60,8 +66,10 @@ export default function ProductEditPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Редактировать товар</h1>
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm">
+      <h1 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+        Редактировать товар
+      </h1>
+      <div className="glass p-6">
         <ProductForm
           initial={product}
           categories={categories}

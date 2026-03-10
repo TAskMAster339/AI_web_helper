@@ -13,21 +13,16 @@ export default function Login() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (formError) setFormError('');
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     if (!formData.username || !formData.password) {
       setFormError('Заполните все поля');
       return;
     }
-
     try {
       await login(formData.username, formData.password);
       navigate('/');
@@ -35,16 +30,29 @@ export default function Login() {
       console.error('Login error:', err);
     }
   };
+
   return (
-    <div className="max-w-md mx-auto">
-      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl border-2 border-gray-200 dark:border-gray-700 p-8">
-        <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white text-center">Вход</h1>
-        <p className="text-lg mb-6 text-gray-700 dark:text-gray-300 text-center">
-          Войдите в свой аккаунт, чтобы продолжить работу с AI Web Helper.
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-full max-w-md glass p-8 slide-up">
+        <h1
+          className="text-3xl font-bold mb-2 text-center"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Вход
+        </h1>
+        <p className="text-center mb-6" style={{ color: 'var(--text-muted)' }}>
+          Войдите в свой аккаунт, чтобы продолжить работу.
         </p>
 
         {(error || formError) && (
-          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/30 border-2 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200 rounded-lg font-medium">
+          <div
+            className="mb-4 p-3 rounded-lg text-sm font-medium"
+            style={{
+              background: 'var(--error-soft)',
+              border: '1px solid var(--error)',
+              color: 'var(--error)',
+            }}
+          >
             {error || formError}
           </div>
         )}
@@ -57,7 +65,6 @@ export default function Login() {
             value={formData.username}
             onChange={handleChange}
             disabled={isLoading}
-            className="px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           <input
             type="password"
@@ -66,35 +73,37 @@ export default function Login() {
             value={formData.password}
             onChange={handleChange}
             disabled={isLoading}
-            className="px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           <button
             type="submit"
             disabled={isLoading}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+            className="btn-primary w-full py-2.5 rounded-lg text-sm"
           >
             {isLoading ? 'Загрузка...' : 'Войти'}
           </button>
         </form>
 
-        <p className="mt-4 text-sm text-center">
-          <Link
-            to="/forgot-password"
-            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-          >
-            Забыли пароль?
-          </Link>
-        </p>
-
-        <p className="mt-4 text-sm text-center text-gray-700 dark:text-gray-300">
-          Нет аккаунта?{' '}
-          <Link
-            to="/register"
-            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-          >
-            Зарегистрироваться
-          </Link>
-        </p>
+        <div className="mt-5 text-center text-sm space-y-2">
+          <p style={{ color: 'var(--text-muted)' }}>
+            <Link
+              to="/forgot-password"
+              className="font-medium hover:underline"
+              style={{ color: 'var(--accent)' }}
+            >
+              Забыли пароль?
+            </Link>
+          </p>
+          <p style={{ color: 'var(--text-muted)' }}>
+            Нет аккаунта?{' '}
+            <Link
+              to="/register"
+              className="font-medium hover:underline"
+              style={{ color: 'var(--accent)' }}
+            >
+              Зарегистрироваться
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

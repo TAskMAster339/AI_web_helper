@@ -25,8 +25,10 @@ export default function ProductCreatePage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Новый товар</h1>
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm">
+      <h1 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+        Новый товар
+      </h1>
+      <div className="glass p-6">
         <ProductForm
           categories={categories}
           isSaving={isSaving}

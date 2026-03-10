@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 interface NavLinkProps {
   to: string;
@@ -6,11 +6,11 @@ interface NavLinkProps {
 }
 
 const NavLink: React.FC<NavLinkProps> = ({ to, children }) => {
+  const { pathname } = useLocation();
+  const isActive = pathname === to || (to !== '/' && pathname.startsWith(to));
+
   return (
-    <Link
-      to={to}
-      className="text-lg font-medium px-3 py-2 rounded-md text-text-light dark:text-text-dark opacity-80 hover:opacity-100 hover:bg-blue-500 hover:bg-opacity-10 dark:hover:bg-opacity-20 transition-all duration-200"
-    >
+    <Link to={to} className={`btn-nav${isActive ? ' active' : ''}`}>
       {children}
     </Link>
   );

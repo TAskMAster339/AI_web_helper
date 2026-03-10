@@ -1,8 +1,9 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useProductStore } from '../../store/productStore';
 import type { ProductFilters } from '../../types/product';
+import GlassConfirmModal from '../GlassConfirmModal';
 import Pagination from './Pagination';
 import ProductCard from './ProductCard';
 import ProductFiltersBar from './ProductFiltersBar';
@@ -85,28 +86,34 @@ export default function ProductsPage() {
     [setSearchParams]
   );
 
-  const handleDelete = useCallback(
-    async (slug: string) => {
-      if (!confirm('Удалить товар?')) return;
-      await deleteProduct(slug);
-    },
-    [deleteProduct]
-  );
+  const [deleteSlug, setDeleteSlug] = useState<string | null>(null);
+
+  const handleDelete = useCallback((slug: string) => {
+    setDeleteSlug(slug);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteSlug) return;
+    await deleteProduct(deleteSlug);
+    setDeleteSlug(null);
+  }, [deleteSlug, deleteProduct]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Каталог товаров</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            Каталог товаров
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
             Найдено: {totalCount} товаров
           </p>
         </div>
         {user && (
           <Link
             to="/products/new"
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition"
+            className="btn-primary flex items-center gap-2 px-4 py-2 text-sm rounded-lg"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -131,7 +138,14 @@ export default function ProductsPage() {
 
       {/* Error */}
       {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 mb-6">
+        <div
+          className="p-4 rounded-xl mb-6 text-sm"
+          style={{
+            background: 'var(--error-soft)',
+            border: '1px solid var(--error)',
+            color: 'var(--error)',
+          }}
+        >
           {error}
         </div>
       )}
@@ -140,14 +154,18 @@ export default function ProductsPage() {
       {isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-72 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />
+            <div
+              key={i}
+              className="h-72 rounded-xl animate-pulse"
+              style={{ background: 'var(--bg-surface)' }}
+            />
           ))}
         </div>
       )}
 
-      {/* Products grid */}
+      {/* Empty state */}
       {!isLoading && products.length === 0 && (
-        <div className="py-20 text-center text-gray-400 dark:text-gray-500">
+        <div className="py-20 text-center" style={{ color: 'var(--text-muted)' }}>
           <svg
             className="w-12 h-12 mx-auto mb-3"
             fill="none"
@@ -166,6 +184,7 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {/* Products grid */}
       {!isLoading && products.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {products.map((product) => (
@@ -185,6 +204,19 @@ export default function ProductsPage() {
         totalCount={totalCount}
         pageSize={PAGE_SIZE}
         onPageChange={handlePageChange}
+      />
+
+      {/* Delete confirmation modal */}
+      <GlassConfirmModal
+        open={deleteSlug !== null}
+        title="Удалить товар?"
+        message="Товар будет удалён без возможности восстановления."
+        confirmLabel="Удалить"
+        cancelLabel="Отмена"
+        variant="danger"
+        icon="🗑️"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteSlug(null)}
       />
     </div>
   );
