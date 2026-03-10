@@ -47,71 +47,78 @@ export default function Register() {
       console.error('Register error:', err);
     }
   };
-
   return (
-    <div className="max-w-2xl text-center">
-      <h1 className="text-4xl font-bold mb-4">Регистрация</h1>
-      <p className="text-lg mb-6">
-        Создайте новый аккаунт, чтобы пользоваться всеми возможностями AI Web Helper.
-      </p>
+    <div className="max-w-md mx-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl border-2 border-gray-200 dark:border-gray-700 p-8">
+        <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white text-center">
+          Регистрация
+        </h1>
+        <p className="text-lg mb-6 text-gray-700 dark:text-gray-300 text-center">
+          Создайте новый аккаунт, чтобы пользоваться всеми возможностями AI Web Helper.
+        </p>
 
-      {(error || formError) && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-          {error || formError}
-        </div>
-      )}
+        {(error || formError) && (
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/30 border-2 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200 rounded-lg font-medium">
+            {error || formError}
+          </div>
+        )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <input
-          type="text"
-          name="username"
-          placeholder="Логин (имя пользователя) — обязательное, уникальное"
-          value={formData.username}
-          onChange={handleChange}
-          disabled={isLoading}
-          className="px-4 py-2 border rounded-lg disabled:opacity-50"
-        />
-        <input
-          type="email"
-          name="email"
-          placeholder="Email — обязательный, уникальный"
-          value={formData.email}
-          onChange={handleChange}
-          disabled={isLoading}
-          className="px-4 py-2 border rounded-lg disabled:opacity-50"
-        />
-        <input
-          type="password"
-          name="password"
-          placeholder="Пароль"
-          value={formData.password}
-          onChange={handleChange}
-          disabled={isLoading}
-          className="px-4 py-2 border rounded-lg disabled:opacity-50"
-        />
-        <input
-          type="password"
-          name="password2"
-          placeholder="Подтвердите пароль"
-          value={formData.password2}
-          onChange={handleChange}
-          disabled={isLoading}
-          className="px-4 py-2 border rounded-lg disabled:opacity-50"
-        />
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="px-5 py-2 border rounded-lg transition link disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Загрузка...' : 'Зарегистрироваться'}
-        </button>
-      </form>
-      <p className="mt-4 text-sm">
-        Уже есть аккаунт?{' '}
-        <Link to="/login" className="text-blue-500 underline">
-          Войти
-        </Link>
-      </p>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <input
+            type="text"
+            name="username"
+            placeholder="Логин (имя пользователя)"
+            value={formData.username}
+            onChange={handleChange}
+            disabled={isLoading}
+            className="px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={handleChange}
+            disabled={isLoading}
+            className="px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <input
+            type="password"
+            name="password"
+            placeholder="Пароль (минимум 8 символов)"
+            value={formData.password}
+            onChange={handleChange}
+            disabled={isLoading}
+            className="px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <input
+            type="password"
+            name="password2"
+            placeholder="Подтвердите пароль"
+            value={formData.password2}
+            onChange={handleChange}
+            disabled={isLoading}
+            className="px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+          >
+            {isLoading ? 'Загрузка...' : 'Зарегистрироваться'}
+          </button>
+        </form>
+
+        <p className="mt-4 text-sm text-center text-gray-700 dark:text-gray-300">
+          Уже есть аккаунт?{' '}
+          <Link
+            to="/login"
+            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+          >
+            Войти
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

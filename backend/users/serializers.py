@@ -1,13 +1,52 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
-from .models import PasswordResetToken
+from .models import PasswordResetToken, UserProfile
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
+    can_make_request = serializers.SerializerMethodField()
+    requests_remaining = serializers.SerializerMethodField()
+    available_models = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserProfile
+        fields = (
+            "role",
+            "role_display",
+            "daily_requests_limit",
+            "daily_requests_used",
+            "can_make_request",
+            "requests_remaining",
+            "available_models",
+        )
+        read_only_fields = (
+            "daily_requests_used",
+            "can_make_request",
+            "requests_remaining",
+            "available_models",
+        )
+
+    def get_can_make_request(self, obj):
+        return obj.can_make_request()
+
+    def get_requests_remaining(self, obj):
+        if obj.role in ["premium", "admin"]:
+            return "unlimited"
+        obj.reset_daily_requests()
+        return obj.daily_requests_limit - obj.daily_requests_used
+
+    def get_available_models(self, obj):
+        return obj.get_available_models()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer(read_only=True)
+
     class Meta:
         model = User
-        fields = ("id", "username", "email", "first_name", "last_name")
+        fields = ("id", "username", "email", "first_name", "last_name", "profile")
         read_only_fields = ("id",)
 
 

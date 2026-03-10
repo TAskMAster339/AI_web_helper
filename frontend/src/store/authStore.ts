@@ -3,12 +3,23 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '../api/axios';
 
+interface UserProfile {
+  role: 'user' | 'premium' | 'admin';
+  role_display: string;
+  daily_requests_limit: number;
+  daily_requests_used: number;
+  can_make_request: boolean;
+  requests_remaining: number | 'unlimited';
+  available_models: string[] | 'all';
+}
+
 interface User {
   id: number;
   username: string;
   email: string;
   first_name: string;
   last_name: string;
+  profile: UserProfile;
 }
 
 interface ApiError {
@@ -27,6 +38,7 @@ interface AuthStore {
   login: (login: string, password: string) => Promise<void>;
   logout: () => void;
   fetchUser: () => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
   setUser: (user: User) => void;
   clearError: () => void;
   refreshAccessToken: () => Promise<void>;
@@ -45,26 +57,20 @@ export const useAuthStore = create<AuthStore>()(
       access_token: null,
       isLoading: false,
       error: null,
-      isAuthenticated: false,
-
-      // Регистрация аккаунта
+      isAuthenticated: false, // Регистрация аккаунта
       register: async (username, email, password, password2) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.post<TokenResponse>('/users/register/', {
+          await api.post('/users/register/', {
             username,
             email,
             password,
             password2,
           });
 
-          const { user, access } = response.data;
-          localStorage.setItem('access_token', access);
-
+          // После успешной регистрации не сохраняем токен,
+          // так как пользователь должен активировать аккаунт через email
           set({
-            user,
-            access_token: access,
-            isAuthenticated: false,
             isLoading: false,
           });
         } catch (error: unknown) {
@@ -129,15 +135,26 @@ export const useAuthStore = create<AuthStore>()(
           });
         }
       },
-
       fetchUser: async () => {
         set({ isLoading: true });
         try {
           const response = await api.get<User>('/users/me/');
           set({ user: response.data, isLoading: false, isAuthenticated: true });
         } catch (error: unknown) {
-          set({ isLoading: false, isAuthenticated: false });
+          localStorage.removeItem('access_token');
+          set({ isLoading: false, isAuthenticated: false, user: null, access_token: null });
           throw error;
+        }
+      },
+
+      // Тихое обновление профиля пользователя без показа loading
+      refreshUserProfile: async () => {
+        try {
+          const response = await api.get<User>('/users/me/');
+          set({ user: response.data, isAuthenticated: true });
+        } catch (error: unknown) {
+          console.error('Failed to refresh user profile:', error);
+          // Не выбрасываем ошибку, чтобы не прерывать работу приложения
         }
       },
 
@@ -160,16 +177,19 @@ export const useAuthStore = create<AuthStore>()(
           throw error;
         }
       },
-
       initializeAuth: async () => {
         set({ isLoading: true });
         try {
           const state = get();
           if (state.access_token) {
             await get().fetchUser();
+          } else {
+            // Если токена нет, явно устанавливаем isAuthenticated = false
+            set({ isAuthenticated: false });
           }
         } catch (error) {
           console.error('Failed to initialize auth:', error);
+          set({ isAuthenticated: false });
         } finally {
           set({ isLoading: false });
         }

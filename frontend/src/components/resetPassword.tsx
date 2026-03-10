@@ -1,6 +1,6 @@
 import type { AxiosError } from 'axios';
 import { useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/axios';
 
 export default function ResetPassword() {
@@ -70,14 +70,15 @@ export default function ResetPassword() {
       setIsLoading(false);
     }
   };
-
   return (
-    <div className="max-w-2xl text-center">
-      <h1 className="text-4xl font-bold mb-4">Новый пароль</h1>
-      <p className="text-lg mb-6">Введите новый пароль для вашего аккаунта</p>
+    <div className="max-w-2xl mx-auto text-center">
+      <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white">Новый пароль</h1>
+      <p className="text-lg mb-6 text-gray-700 dark:text-gray-300">
+        Введите новый пароль для вашего аккаунта
+      </p>
 
       {(error || formError) && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-200 rounded-lg">
           {error || formError}
         </div>
       )}
@@ -90,7 +91,7 @@ export default function ResetPassword() {
           value={formData.password}
           onChange={handleChange}
           disabled={isLoading}
-          className="px-4 py-2 border rounded-lg disabled:opacity-50"
+          className="px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         />
         <input
           type="password"
@@ -99,20 +100,23 @@ export default function ResetPassword() {
           value={formData.password2}
           onChange={handleChange}
           disabled={isLoading}
-          className="px-4 py-2 border rounded-lg disabled:opacity-50"
+          className="px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         />
         <button
           type="submit"
           disabled={isLoading}
-          className="px-5 py-2 border rounded-lg transition link disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
         >
           {isLoading ? 'Сохранение...' : 'Изменить пароль'}
         </button>
       </form>
 
-      <p className="mt-4 text-sm">
+      <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
         Вспомнили пароль?{' '}
-        <Link to="/login" className="text-blue-500 underline">
+        <Link
+          to="/login"
+          className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"
+        >
           Войти
         </Link>
       </p>

@@ -17,6 +17,7 @@ export interface LLMResponse {
   mode: 'navigate' | 'chat';
   model: string;
   error?: string;
+  requests_remaining?: number | 'unlimited';
 }
 
 export interface AskQuestionParams {
@@ -38,7 +39,11 @@ class LLMService {
   async getActionCode(
     question: string,
     model: string = 'alibayram/smollm3'
-  ): Promise<{ action_code: string; action_description: string }> {
+  ): Promise<{
+    action_code: string;
+    action_description: string;
+    requests_remaining?: number | 'unlimited';
+  }> {
     try {
       const response = await api.post<LLMResponse>('/llm/ask/', {
         question: question,
@@ -49,10 +54,11 @@ class LLMService {
       return {
         action_code: response.data.action_code || '001',
         action_description: response.data.action_description || 'Главная страница',
+        requests_remaining: response.data.requests_remaining,
       };
     } catch (error) {
       console.error('Action code fetch error:', error);
-      return { action_code: '001', action_description: 'Главная страница' };
+      throw error;
     }
   }
 

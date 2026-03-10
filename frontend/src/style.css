@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Переопределяем dark variant для использования класса вместо prefers-color-scheme */
+@variant dark (&:where(.dark, .dark *));
+
 /* Кастомные переменные для темы */
 :root {
   --background-light: #fafafa;
@@ -21,14 +24,7 @@
   --border-dark: #475569;
 }
 
-/* Темная тема */
-.dark {
-  --background-light: var(--background-dark);
-  --surface-light: var(--surface-dark);
-  --text-light: var(--text-dark);
-  --text-muted-light: var(--text-muted-dark);
-  --border-light: var(--border-dark);
-}
+/* Темная тема - не переопределяем переменные, используем прямые значения */
 
 /* ===== ТИПОГРАФИЯ ===== */
 body {
@@ -47,11 +43,9 @@ body {
   line-height: 1.6;
   letter-spacing: -0.01em;
   font-size: 16px;
-  color: var(--text-light);
-  background-color: var(--background-light);
-  transition:
-    background-color 0.3s ease,
-    color 0.3s ease;
+  margin: 0;
+  padding: 0;
+  /* Убираем фон и цвет из body - они будут на главном контейнере */
 }
 
 /* Заголовки */
@@ -64,6 +58,10 @@ h1 {
   color: var(--text-light);
 }
 
+.dark h1 {
+  color: var(--text-dark);
+}
+
 h2 {
   font-size: 2.25rem;
   font-weight: 700;
@@ -71,6 +69,10 @@ h2 {
   line-height: 1.2;
   letter-spacing: -0.015em;
   color: var(--text-light);
+}
+
+.dark h2 {
+  color: var(--text-dark);
 }
 
 h3 {
@@ -81,12 +83,20 @@ h3 {
   color: var(--text-light);
 }
 
+.dark h3 {
+  color: var(--text-dark);
+}
+
 h4 {
   font-size: 1.5rem;
   font-weight: 600;
   margin-bottom: 0.75rem;
   line-height: 1.4;
   color: var(--text-light);
+}
+
+.dark h4 {
+  color: var(--text-dark);
 }
 
 h5 {
@@ -96,11 +106,19 @@ h5 {
   color: var(--text-light);
 }
 
+.dark h5 {
+  color: var(--text-dark);
+}
+
 h6 {
   font-size: 1.125rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
   color: var(--text-light);
+}
+
+.dark h6 {
+  color: var(--text-dark);
 }
 
 /* Параграфы */
@@ -111,10 +129,18 @@ p {
   color: var(--text-light);
 }
 
+.dark p {
+  color: var(--text-dark);
+}
+
 p.subtitle {
   font-size: 1.125rem;
   color: var(--text-muted-light);
   font-weight: 500;
+}
+
+.dark p.subtitle {
+  color: var(--text-muted-dark);
 }
 
 /* Ссылки */
@@ -146,6 +172,10 @@ li {
   line-height: 1.7;
 }
 
+.dark li {
+  color: var(--text-dark);
+}
+
 /* ===== КОМПОНЕНТЫ ===== */
 
 /* Header */
@@ -170,6 +200,7 @@ footer {
 .dark .header {
   border-bottom-color: var(--border-dark);
   color: var(--text-dark);
+  background-color: var(--surface-dark);
 }
 
 .header h1 {
@@ -195,6 +226,7 @@ footer {
 .dark .footer {
   border-top-color: var(--border-dark);
   color: var(--text-muted-dark);
+  background-color: var(--surface-dark);
 }
 
 /* Container */
@@ -278,7 +310,7 @@ footer {
 }
 
 .dark .link {
-  background-color: transparent;
+  background-color: var(--background-dark);
   color: var(--primary);
 }
 
@@ -302,7 +334,7 @@ footer {
 }
 
 .dark .card {
-  background-color: var(--background-dark);
+  background-color: var(--surface-dark);
   border-color: var(--border-dark);
 }
 
@@ -336,7 +368,7 @@ select:focus {
 .dark input,
 .dark textarea,
 .dark select {
-  background-color: #334155;
+  background-color: var(--surface-dark);
   border-color: var(--border-dark);
   color: var(--text-dark);
 }
@@ -577,12 +609,23 @@ hr {
 .bg-background-light {
   background-color: var(--background-light);
 }
+
+.dark .bg-background-light {
+  background-color: var(--background-dark);
+}
+
 .bg-background-dark {
   background-color: var(--background-dark);
 }
+
 .text-text-light {
   color: var(--text-light);
 }
+
+.dark .text-text-light {
+  color: var(--text-dark);
+}
+
 .text-text-dark {
   color: var(--text-dark);
 }
@@ -590,6 +633,11 @@ hr {
 .border-gray-200 {
   border-color: var(--border-light);
 }
+
+.dark .border-gray-200 {
+  border-color: var(--border-dark);
+}
+
 .border-gray-700 {
   border-color: var(--border-dark);
 }

@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import llmService, { type ChatMessage } from '../services/llmService';
+import { useAuthStore } from '../store/authStore';
 import { createActionHandlers, executeAction } from '../utils/actionHandlers';
 import './llmChat.css';
 
 const FloatingLLMChat: React.FC = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated, refreshUserProfile } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
@@ -13,22 +15,31 @@ const FloatingLLMChat: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState('alibayram/smollm3');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [requestsRemaining, setRequestsRemaining] = useState<number | 'unlimited'>('unlimited');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [width, setWidth] = useState(420);
   const [height, setHeight] = useState(600);
   const [isResizing, setIsResizing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Загрузить доступные модели и карту действий при монтировании
+  const containerRef = useRef<HTMLDivElement>(null); // Загрузить доступные модели и карту действий при монтировании
   useEffect(() => {
+    // Загружаем данные только если пользователь авторизован
+    if (!isAuthenticated) {
+      return;
+    }
+
     const loadData = async () => {
       try {
         const models = await llmService.getAvailableModels();
         setAvailableModels(models);
         if (models.length > 0) {
           setSelectedModel(models[0]);
+        }
+
+        // Set initial requests remaining from user profile
+        if (user?.profile) {
+          setRequestsRemaining(user.profile.requests_remaining);
         }
       } catch (err) {
         console.error('Failed to load LLM data:', err);
@@ -49,9 +60,8 @@ const FloatingLLMChat: React.FC = () => {
       attributes: true,
       attributeFilter: ['class'],
     });
-
     return () => observer.disconnect();
-  }, []);
+  }, [user, isAuthenticated]);
 
   // Автоскролл к последнему сообщению
   useEffect(() => {
@@ -104,6 +114,14 @@ const FloatingLLMChat: React.FC = () => {
 
     if (!question.trim()) return;
 
+    // Check if user can make request
+    if (requestsRemaining !== 'unlimited' && requestsRemaining <= 0) {
+      setError(
+        'Вы достигли лимита запросов на сегодня. Обновите подписку для неограниченного доступа.'
+      );
+      return;
+    }
+
     const userQuestion = question.trim();
     setQuestion('');
     setError(null);
@@ -118,14 +136,18 @@ const FloatingLLMChat: React.FC = () => {
         timestamp: Date.now(),
       };
 
-      setMessages((prev) => [...prev, userMessage]);
+      setMessages((prev) => [...prev, userMessage]); // Получаем код действия у LLM
+      const response = await llmService.getActionCode(userQuestion, selectedModel);
 
-      // Получаем код действия у LLM
-      const { action_code, action_description } = await llmService.getActionCode(
-        userQuestion,
-        selectedModel
-      );
+      // Update requests remaining from response
+      if (response.requests_remaining !== undefined) {
+        setRequestsRemaining(response.requests_remaining);
+      }
 
+      // Обновляем профиль пользователя для синхронизации данных
+      refreshUserProfile();
+
+      const { action_code, action_description } = response;
       const answer = `✅ ${action_description}`;
       setMessages((prev) =>
         prev.map((msg) => (msg.id === userMessage.id ? { ...msg, answer } : msg))
@@ -143,7 +165,11 @@ const FloatingLLMChat: React.FC = () => {
       }, 800);
     } catch (err) {
       console.error('Error getting response:', err);
-      setError('Ошибка при получении ответа. Попробуйте ещё раз.');
+      if (err instanceof Error && err.message.includes('403')) {
+        setError('У вас нет доступа к выбранной модели.');
+      } else {
+        setError('Ошибка при получении ответа. Попробуйте ещё раз.');
+      }
       setMessages((prev) => prev.slice(0, -1));
     } finally {
       setLoading(false);

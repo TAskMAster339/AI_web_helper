@@ -13,6 +13,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import PasswordResetToken
+from .permissions import IsAdminUser
 from .serializers import (
     LoginSerializer,
     PasswordResetConfirmSerializer,
@@ -258,3 +259,49 @@ class TokenRefreshView(APIView):
             )
         else:
             return response
+
+
+class ManageUsersView(APIView):
+    """
+    Admin endpoint to manage users and their roles
+    """
+
+    permission_classes = (IsAdminUser,)
+
+    def get(self, request):
+        """Get all users with their profiles"""
+        users = User.objects.select_related("profile").all()
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UpdateUserRoleView(APIView):
+    """
+    Admin endpoint to update user role
+    """
+
+    permission_classes = (IsAdminUser,)
+
+    def patch(self, request, user_id):
+        """Update user role"""
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Пользователь не найден"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        role = request.data.get("role")
+        if role not in ["user", "premium", "admin"]:
+            return Response(
+                {"detail": "Недопустимая роль"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile = user.profile
+        profile.role = role
+        profile.save()
+
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)

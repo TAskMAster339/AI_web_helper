@@ -20,4 +20,11 @@ urlpatterns = [
         views.PasswordResetConfirmView.as_view(),
         name="password_reset_confirm",
     ),
+    # Admin endpoints
+    path("admin/users/", views.ManageUsersView.as_view(), name="admin_users"),
+    path(
+        "admin/users/<int:user_id>/role/",
+        views.UpdateUserRoleView.as_view(),
+        name="admin_update_role",
+    ),
 ]

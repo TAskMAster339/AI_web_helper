@@ -10,7 +10,12 @@ interface AuthRedirectRouteProps {
  * Иначе показывает компонент
  */
 const AuthRedirectRoute = ({ children }: AuthRedirectRouteProps) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
+
+  // Ждём завершения проверки аутентификации
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-screen">Загрузка...</div>;
+  }
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;

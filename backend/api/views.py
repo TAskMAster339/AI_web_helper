@@ -10,6 +10,7 @@ from rest_framework.permissions import (
 )
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from users.permissions import CanMakeRequest
 
 from .llm_service import ACTIONS_MAP, OllamaService
 from .models import Category, Order, Product
@@ -117,13 +118,23 @@ class AskLLMView(APIView):
     }
     """
 
-    permission_classes = (AllowAny,)
+    permission_classes = (IsAuthenticated, CanMakeRequest)
 
     def post(self, request):
         """Обработать POST запрос с вопросом"""  # noqa: RUF002
         question = request.data.get("question", "").strip()
         model = request.data.get("model", "alibayram/smollm3")
         mode = request.data.get("mode", "chat")  # "chat" или "navigate"
+
+        # Check if user has access to requested model
+        profile = request.user.profile
+        available_models = profile.get_available_models()
+
+        if available_models != "all" and model not in available_models:
+            return Response(
+                {"error": "You don't have access to this model"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if not question:
             return Response(
@@ -139,6 +150,9 @@ class AskLLMView(APIView):
                     action_code,
                     "Неизвестное действие",
                 )
+                # Increment request counter
+                profile.increment_requests()
+
                 return Response(
                     {
                         "question": question,
@@ -146,23 +160,38 @@ class AskLLMView(APIView):
                         "action_description": action_description,
                         "mode": "navigate",
                         "model": model,
+                        "requests_remaining": (
+                            "unlimited"
+                            if profile.role in ["premium", "admin"]
+                            else profile.daily_requests_limit
+                            - profile.daily_requests_used
+                        ),
                     },
                     status=status.HTTP_200_OK,
                 )
             # Обычный режим чата - получить полный ответ
             answer = OllamaService.generate_response(question, model)
+
+            # Increment request counter
+            profile.increment_requests()
+
             return Response(
                 {
                     "question": question,
                     "answer": answer,
                     "mode": "chat",
                     "model": model,
+                    "requests_remaining": (
+                        "unlimited"
+                        if profile.role in ["premium", "admin"]
+                        else profile.daily_requests_limit - profile.daily_requests_used
+                    ),
                 },
                 status=status.HTTP_200_OK,
             )
 
         except Exception as e:
-            logger.error(f"Ошибка в обработке LLM: {e!s}", exc_info=True)  # noqa: G004, G201
+            logger.exception(f"Ошибка в обработке LLM: {e!s}")  # noqa: G004
             return Response(
                 {"error": f"LLM processing error: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -176,18 +205,27 @@ class GetAvailableModelsView(APIView):
     GET /api/llm/models/
     """
 
-    permission_classes = (AllowAny,)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         """Получить доступные модели"""
         try:
-            models = OllamaService.list_available_models()
+            all_models = (
+                OllamaService.list_available_models()
+            )  # Filter models based on user role
+            if hasattr(request.user, "profile"):
+                available_models = request.user.profile.get_available_models()
+                models = all_models if available_models == "all" else available_models
+            else:
+                # Fallback if profile doesn't exist
+                models = ["alibayram/smollm3"]
+
             return Response(
                 {"models": models},
                 status=status.HTTP_200_OK,
             )
         except Exception as e:
-            logger.error(f"Ошибка при получении моделей: {e!s}", exc_info=True)  # noqa: G004, G201
+            logger.exception(f"Ошибка при получении моделей: {e!s}")  # noqa: G004
             return Response(
                 {"models": ["alibayram/smollm3"]},
                 status=status.HTTP_200_OK,

@@ -45,7 +45,7 @@ export default function ForgotPassword() {
 
   if (success) {
     return (
-      <div className="max-w-2xl text-center">
+      <div className="max-w-2xl mx-auto text-center">
         <h1 className="text-4xl font-bold mb-4">Письмо отправлено</h1>
         <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
           <p>
@@ -61,7 +61,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="max-w-2xl text-center">
+    <div className="max-w-2xl mx-auto text-center">
       <h1 className="text-4xl font-bold mb-4">Восстановление пароля</h1>
       <p className="text-lg mb-6">
         Введите email, связанный с вашим аккаунтом, и мы отправим вам ссылку для восстановления

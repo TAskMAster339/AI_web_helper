@@ -1,6 +1,6 @@
 export default function About() {
   return (
-    <div className="max-w-2xl text-center">
+    <div className="max-w-2xl mx-auto text-center">
       <h1 className="text-4xl font-bold mb-4">О проекте</h1>
       <p className="text-lg mb-6">
         AI Web Helper — это минималистичный помощник с искусственным интеллектом, созданный для
