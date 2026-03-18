@@ -5,10 +5,12 @@ on:
     branches: [main, dev]
     paths:
       - "frontend/**"
+      - ".github/workflows/front_lint.yml"
   pull_request:
     branches: [main, dev]
     paths:
       - "frontend/**"
+      - ".github/workflows/front_lint.yml"
 
 jobs:
   lint:
@@ -26,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 

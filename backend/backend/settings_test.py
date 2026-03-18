@@ -3,8 +3,12 @@ Test settings for Django backend.
 Overrides production settings for isolated testing.
 """
 
+import os
 import tempfile
 from datetime import timedelta
+
+# Ensure base settings can import without requiring env vars in CI.
+os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
 
 from backend.settings import *  # noqa: F403
 

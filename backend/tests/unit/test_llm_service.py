@@ -14,10 +14,13 @@ def test_get_action_code_extracts_first_3_digits(monkeypatch):
         def chat(self, **_kwargs):
             return {"message": {"content": "Some text 004 and more"}}
 
+    def _client_factory():
+        return DummyClient()
+
     monkeypatch.setattr(
         OllamaService,
         "get_client",
-        staticmethod(lambda: DummyClient()),
+        staticmethod(_client_factory),
     )
 
     assert OllamaService.get_action_code("show products") == "004"
@@ -28,10 +31,13 @@ def test_get_action_code_falls_back_on_unknown_code(monkeypatch):
         def chat(self, **_kwargs):
             return {"message": {"content": "999"}}
 
+    def _client_factory():
+        return DummyClient()
+
     monkeypatch.setattr(
         OllamaService,
         "get_client",
-        staticmethod(lambda: DummyClient()),
+        staticmethod(_client_factory),
     )
 
     assert OllamaService.get_action_code("do something") == "000"
@@ -47,10 +53,13 @@ def test_get_product_filters_parses_json_from_response(monkeypatch):
                 },
             }
 
+    def _client_factory():
+        return DummyClient()
+
     monkeypatch.setattr(
         OllamaService,
         "get_client",
-        staticmethod(lambda: DummyClient()),
+        staticmethod(_client_factory),
     )
 
     assert OllamaService.get_product_filters("до 1000 в наличии") == {
@@ -64,10 +73,13 @@ def test_get_product_filters_returns_empty_on_invalid_json(monkeypatch):
         def chat(self, **_kwargs):
             return {"message": {"content": "{invalid json"}}
 
+    def _client_factory():
+        return DummyClient()
+
     monkeypatch.setattr(
         OllamaService,
         "get_client",
-        staticmethod(lambda: DummyClient()),
+        staticmethod(_client_factory),
     )
 
     assert OllamaService.get_product_filters("bad") == {}
@@ -78,10 +90,13 @@ def test_get_weather_city_defaults_to_moscow_when_no_json(monkeypatch):
         def chat(self, **_kwargs):
             return {"message": {"content": "город не указан"}}
 
+    def _client_factory():
+        return DummyClient()
+
     monkeypatch.setattr(
         OllamaService,
         "get_client",
-        staticmethod(lambda: DummyClient()),
+        staticmethod(_client_factory),
     )
 
     assert OllamaService.get_weather_city("погода") == "Москва"
@@ -92,10 +107,13 @@ def test_get_weather_city_parses_city_from_json(monkeypatch):
         def chat(self, **_kwargs):
             return {"message": {"content": '{"city": "Казань"}'}}
 
+    def _client_factory():
+        return DummyClient()
+
     monkeypatch.setattr(
         OllamaService,
         "get_client",
-        staticmethod(lambda: DummyClient()),
+        staticmethod(_client_factory),
     )
 
     assert OllamaService.get_weather_city("погода в казани") == "Казань"
