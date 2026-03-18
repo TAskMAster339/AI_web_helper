@@ -17,7 +17,8 @@ type State =
 
 /** Map OWM icon code prefix to gradient for the card background */
 function weatherGradient(icon: string): string {
-  const code = icon.slice(0, 2);
+  const safeIcon = typeof icon === 'string' ? icon : '';
+  const code = safeIcon.length >= 2 ? safeIcon.slice(0, 2) : '';
   const gradients: Record<string, string> = {
     '01': 'linear-gradient(135deg, #74b9ff 0%, #0984e3 100%)',
     '02': 'linear-gradient(135deg, #a29bfe 0%, #74b9ff 100%)',
@@ -105,7 +106,7 @@ export default function WeatherWidget({ city = 'Москва' }: Props) {
 
   const gradient =
     state.status === 'success'
-      ? weatherGradient(state.data.icon)
+      ? weatherGradient((state.data as WeatherData | undefined)?.icon ?? '')
       : 'linear-gradient(135deg, #74b9ff 0%, #0984e3 100%)';
 
   return (
@@ -152,7 +153,11 @@ export default function WeatherWidget({ city = 'Москва' }: Props) {
               <p className="text-sm mt-1 capitalize text-white/80">{state.data.description}</p>
             </div>
             <img
-              src={ICON_BASE + state.data.icon + '@2x.png'}
+              src={
+                ICON_BASE +
+                (((state.data as WeatherData | undefined)?.icon ?? '01d') || '01d') +
+                '@2x.png'
+              }
               alt={state.data.description}
               width={72}
               height={72}

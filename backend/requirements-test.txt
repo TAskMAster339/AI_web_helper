@@ -1,0 +1,29 @@
+# Testing requirements
+# Backend testing dependencies
+
+# Testing frameworks
+pytest==7.4.3
+pytest-django==4.7.0
+pytest-cov==4.1.0
+pytest-asyncio==0.23.3
+
+# Fixtures and factories
+factory-boy==3.3.0
+
+# Mocking and fixtures
+freezegun==1.5.1
+responses==0.24.1
+pytest-mock==3.12.0
+
+# Django testing utilities
+django-testing-utils==0.8.0
+
+# Coverage and quality
+coverage==7.4.1
+coverage-badge==1.1.0
+
+# Performance testing
+pytest-benchmark==4.0.0
+
+# Timing
+pytest-timeout==2.2.0

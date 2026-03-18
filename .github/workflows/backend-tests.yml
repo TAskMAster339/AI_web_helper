@@ -1,0 +1,85 @@
+name: Backend Tests
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "backend/**"
+      - "requirements.txt"
+      - ".github/workflows/backend-tests.yml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "backend/**"
+      - "requirements.txt"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r backend/requirements-test.txt
+
+      - name: Run unit tests
+        env:
+          DJANGO_SETTINGS_MODULE: backend.settings_test
+        run: |
+          cd backend
+          pytest -m unit --cov=api --cov=users --cov-report=xml --cov-report=html -v
+
+      - name: Run integration tests
+        env:
+          DJANGO_SETTINGS_MODULE: backend.settings_test
+        run: |
+          cd backend
+          pytest -m integration --cov=api --cov=users --cov-report=xml --cov-report=html -v
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./backend/coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Archive coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/htmlcov/
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINIMUM_GREEN: 80
+          MINIMUM_ORANGE: 60

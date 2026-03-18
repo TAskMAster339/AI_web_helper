@@ -114,12 +114,14 @@ export default function ProductForm({
       {/* Title */}
       <div>
         <label
+          htmlFor="product-title"
           className="block text-sm font-medium mb-1"
           style={{ color: 'var(--text-secondary)' }}
         >
           Название <span style={{ color: 'var(--error)' }}>*</span>
         </label>
         <input
+          id="product-title"
           type="text"
           value={values.title}
           onChange={set('title')}
@@ -136,12 +138,14 @@ export default function ProductForm({
       {/* Description */}
       <div>
         <label
+          htmlFor="product-description"
           className="block text-sm font-medium mb-1"
           style={{ color: 'var(--text-secondary)' }}
         >
           Описание <span style={{ color: 'var(--error)' }}>*</span>
         </label>
         <textarea
+          id="product-description"
           value={values.description}
           onChange={set('description')}
           rows={4}
@@ -160,12 +164,14 @@ export default function ProductForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label
+            htmlFor="product-price"
             className="block text-sm font-medium mb-1"
             style={{ color: 'var(--text-secondary)' }}
           >
             Цена (₽) <span style={{ color: 'var(--error)' }}>*</span>
           </label>
           <input
+            id="product-price"
             type="number"
             min="0"
             step="0.01"
@@ -182,12 +188,14 @@ export default function ProductForm({
         </div>
         <div>
           <label
+            htmlFor="product-stock"
             className="block text-sm font-medium mb-1"
             style={{ color: 'var(--text-secondary)' }}
           >
             Остаток (шт.)
           </label>
           <input
+            id="product-stock"
             type="number"
             min="0"
             value={values.stock}
@@ -207,12 +215,14 @@ export default function ProductForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label
+            htmlFor="product-category"
             className="block text-sm font-medium mb-1"
             style={{ color: 'var(--text-secondary)' }}
           >
             Категория <span style={{ color: 'var(--error)' }}>*</span>
           </label>
           <select
+            id="product-category"
             value={values.category}
             onChange={set('category')}
             style={fieldErrors.category ? errBorder : undefined}
@@ -232,12 +242,13 @@ export default function ProductForm({
         </div>
         <div>
           <label
+            htmlFor="product-status"
             className="block text-sm font-medium mb-1"
             style={{ color: 'var(--text-secondary)' }}
           >
             Статус
           </label>
-          <select value={values.status} onChange={set('status')}>
+          <select id="product-status" value={values.status} onChange={set('status')}>
             <option value="draft">Черновик</option>
             <option value="published">Опубликован</option>
             <option value="archived">Архив</option>

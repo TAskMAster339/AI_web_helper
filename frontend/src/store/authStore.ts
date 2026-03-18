@@ -214,7 +214,16 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
         try {
           const state = get();
-          if (state.access_token) {
+
+          // Ensure we pick up token saved by login even if the persisted store hasn't rehydrated yet
+          // (can happen across reloads in some browsers/e2e contexts).
+          const storedAccess = localStorage.getItem('access_token');
+          if (!state.access_token && storedAccess) {
+            set({ access_token: storedAccess });
+          }
+
+          const nextState = get();
+          if (nextState.access_token) {
             await get().fetchUser();
           } else {
             // Если токена нет, явно устанавливаем isAuthenticated = false
@@ -222,7 +231,8 @@ export const useAuthStore = create<AuthStore>()(
           }
         } catch (error) {
           console.error('Failed to initialize auth:', error);
-          set({ isAuthenticated: false });
+          localStorage.removeItem('access_token');
+          set({ isAuthenticated: false, user: null, access_token: null });
         } finally {
           set({ isLoading: false });
         }
