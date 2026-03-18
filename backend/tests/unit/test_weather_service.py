@@ -14,6 +14,7 @@ def test_normalize_maps_fields():
         "wind": {"speed": 3.2},
     }
     norm = WeatherService._normalize(raw)  # noqa: SLF001
+
     assert norm["city"] == "Moscow"
     assert norm["country"] == "RU"
     assert norm["temperature"] == 20  # noqa: PLR2004
