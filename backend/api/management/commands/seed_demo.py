@@ -7,8 +7,6 @@ Usage:
     python manage.py seed_demo --clear  # drop existing demo data first
 """
 
-# ruff: noqa: RUF001
-
 from decimal import Decimal
 
 from django.contrib.auth.models import User
