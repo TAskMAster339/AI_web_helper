@@ -26,6 +26,16 @@ interface ProductStore {
   clearError: () => void;
 }
 
+// In-flight request key for fetchProducts deduplication.
+// Prevents duplicate API calls when multiple effects fire in the same tick.
+let productsInFlightKey: string | null = null;
+
+// Flag set synchronously before the categories request starts so that concurrent
+// callers (StrictMode double-invoke, multiple components) don't fire a second request
+// while the first one is still in-flight. Unlike categoriesLoaded (which is only set
+// after the response arrives), this flag blocks duplicates immediately.
+let categoriesInFlight = false;
+
 export const useProductStore = create<ProductStore>((set, get) => ({
   products: [],
   totalCount: 0,
@@ -37,22 +47,32 @@ export const useProductStore = create<ProductStore>((set, get) => ({
   saveError: null,
 
   fetchProducts: async (filters) => {
+    const key = new URLSearchParams(
+      Object.entries(filters).filter(([, v]) => v !== undefined) as [string, string][]
+    ).toString();
+    if (productsInFlightKey === key) return;
+    productsInFlightKey = key;
+
     set({ isLoading: true, error: null });
     try {
       const data: PaginatedResponse<Product> = await productApi.list(filters);
       set({ products: data.results, totalCount: data.count, isLoading: false });
     } catch {
       set({ error: 'Ошибка загрузки товаров', isLoading: false });
+    } finally {
+      productsInFlightKey = null;
     }
   },
 
   fetchCategories: async () => {
-    if (get().categoriesLoaded) return;
+    if (get().categoriesLoaded || categoriesInFlight) return;
+    categoriesInFlight = true;
     try {
       const cats = await productApi.listCategories();
       set({ categories: cats, categoriesLoaded: true });
     } catch {
-      // non-critical
+      // non-critical — allow retry next time
+      categoriesInFlight = false;
     }
   },
 

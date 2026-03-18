@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Product } from '../../types/product';
 
 interface Props {
@@ -14,6 +14,7 @@ const STATUS_CFG: Record<string, { label: string; bg: string; color: string }> =
 };
 
 export default function ProductCard({ product, currentUserId, onDelete }: Props) {
+  const navigate = useNavigate();
   const isOwner = currentUserId === product.author.id;
   const cover = product.images?.[0]?.url;
   const status = STATUS_CFG[product.status] ?? STATUS_CFG.draft;
@@ -29,10 +30,10 @@ export default function ProductCard({ product, currentUserId, onDelete }: Props)
     '?';
 
   return (
-    <Link
-      to={`/products/${product.slug}`}
+    <article
       className="group product-card overflow-hidden flex flex-col"
-      style={{ textDecoration: 'none' }}
+      style={{ cursor: 'pointer' }}
+      onClick={() => navigate(`/products/${product.slug}`)}
     >
       {/* ── Cover image ── */}
       <div
@@ -43,6 +44,8 @@ export default function ProductCard({ product, currentUserId, onDelete }: Props)
           <img
             src={cover}
             alt={product.title}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
           />
         ) : (
@@ -74,7 +77,7 @@ export default function ProductCard({ product, currentUserId, onDelete }: Props)
         {isOwner && (
           <div
             className="absolute top-2.5 right-2.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-            onClick={(e) => e.preventDefault()}
+            onClick={(e) => e.stopPropagation()}
           >
             <Link
               to={`/products/${product.slug}/edit`}
@@ -99,7 +102,6 @@ export default function ProductCard({ product, currentUserId, onDelete }: Props)
             </Link>
             <button
               onClick={(e) => {
-                e.preventDefault();
                 e.stopPropagation();
                 onDelete?.(product.slug);
               }}
@@ -149,7 +151,7 @@ export default function ProductCard({ product, currentUserId, onDelete }: Props)
         </p>
 
         {/* ── Author ── */}
-        <span className="flex items-center gap-2 mt-1 w-fit" onClick={(e) => e.preventDefault()}>
+        <span className="flex items-center gap-2 mt-1 w-fit" onClick={(e) => e.stopPropagation()}>
           <Link
             to={`/users/${product.author.id}`}
             className="flex items-center gap-2 group/author"
@@ -171,6 +173,8 @@ export default function ProductCard({ product, currentUserId, onDelete }: Props)
                 <img
                   src={product.author.avatar_url}
                   alt={authorName}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -221,6 +225,6 @@ export default function ProductCard({ product, currentUserId, onDelete }: Props)
           </span>
         </div>
       </div>
-    </Link>
+    </article>
   );
 }

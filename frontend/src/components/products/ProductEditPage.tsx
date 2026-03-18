@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { productApi } from '../../api/productApi';
+import { useSEO } from '../../hooks/useSEO';
 import { useAuthStore } from '../../store/authStore';
 import { useProductStore } from '../../store/productStore';
 import type { Product } from '../../types/product';
@@ -14,6 +15,12 @@ export default function ProductEditPage() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  useSEO({
+    title: product ? `Редактировать: ${product.title}` : 'Редактировать товар',
+    description: 'Редактирование товара в каталоге AI Web Helper.',
+    noIndex: true,
+  });
 
   useEffect(() => {
     fetchCategories();

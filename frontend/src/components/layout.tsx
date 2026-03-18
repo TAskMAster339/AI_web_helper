@@ -26,6 +26,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Sync state when theme is changed externally (e.g. via LLM action handler)
+  useEffect(() => {
+    const onStorage = () => {
+      const stored = (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
+      setTheme(stored);
+    };
+    window.addEventListener('storage', onStorage);
+
+    // Also watch the DOM class directly via MutationObserver (same-tab changes
+    // don't fire the storage event)
+    const observer = new MutationObserver(() => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setTheme(isDark ? 'dark' : 'light');
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      observer.disconnect();
+    };
+  }, []);
+
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
@@ -59,7 +84,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {isAuthenticated && user ? (
               <>
-                <NavLink to="/dashboard">Дашборд</NavLink>
+                <NavLink to="/dashboard">@{user.username}</NavLink>
                 {user.profile?.role === 'admin' && <NavLink to="/admin">Админ</NavLink>}
                 <button
                   onClick={() => setShowLogoutConfirm(true)}
@@ -117,7 +142,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <NavLink to="/products">Каталог</NavLink>
             {isAuthenticated && user ? (
               <>
-                <NavLink to="/dashboard">Дашборд</NavLink>
+                <NavLink to="/dashboard">@{user.username}</NavLink>
                 {user.profile?.role === 'admin' && <NavLink to="/admin">Админ</NavLink>}
                 <button
                   onClick={() => {

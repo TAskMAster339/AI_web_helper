@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 import { useAuthStore } from '../store/authStore';
 
 export default function Login() {
   const navigate = useNavigate();
+  useSEO({ title: 'Вход', description: 'Войдите в аккаунт AI Web Helper.', noIndex: true });
   const { login, isLoading, error } = useAuthStore();
   const [formData, setFormData] = useState({
     username: '',

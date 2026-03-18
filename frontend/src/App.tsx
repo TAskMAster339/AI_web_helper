@@ -29,7 +29,7 @@ function App() {
   // При первом рендере вызываем восстановление авторизации
   useEffect(() => {
     initializeAuth();
-  }, [initializeAuth]);
+  }, []); // only on mount
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;

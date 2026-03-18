@@ -107,14 +107,14 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError(
-                "Пользователь с таким логином уже существует",  # noqa: RUF001
+                "Пользователь с таким логином уже существует",
             )
         return value
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError(
-                "Пользователь с таким email уже существует",  # noqa: RUF001
+                "Пользователь с таким email уже существует",
             )
         return value
 
@@ -174,11 +174,11 @@ class PasswordResetSerializer(serializers.Serializer):
     def validate_email(self, value):
         """
         Проверяет, существует ли пользователь с таким email
-        """  # noqa: RUF002
+        """
         try:
             User.objects.get(email=value)
         except User.DoesNotExist:
-            raise serializers.ValidationError("Пользователь с таким email не найден")  # noqa: B904, RUF001
+            raise serializers.ValidationError("Пользователь с таким email не найден")  # noqa: B904
         return value
 
 

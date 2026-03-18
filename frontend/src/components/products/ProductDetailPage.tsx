@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { productApi } from '../../api/productApi';
+import { useSEO } from '../../hooks/useSEO';
 import { useAuthStore } from '../../store/authStore';
 import { useProductStore } from '../../store/productStore';
 import type { Product, ProductImage } from '../../types/product';
@@ -30,6 +31,36 @@ export default function ProductDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Build JSON-LD for this product
+  const productJsonLd = product
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: product.title,
+        description: product.description,
+        sku: String(product.id),
+        brand: { '@type': 'Brand', name: 'AI Web Helper' },
+        offers: {
+          '@type': 'Offer',
+          price: product.price,
+          priceCurrency: 'RUB',
+          availability:
+            product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        },
+        category: product.category_name,
+      }
+    : undefined;
+
+  useSEO({
+    title: product ? product.title : 'Товар',
+    description: product
+      ? `${product.title} — ${product.description.slice(0, 140)}`
+      : 'Просмотр товара в каталоге AI Web Helper',
+    image: product?.images?.[0]?.url ?? undefined,
+    type: 'product',
+    jsonLd: productJsonLd,
+  });
 
   useEffect(() => {
     if (!slug) return;
@@ -135,6 +166,7 @@ export default function ProductDetailPage() {
                       src={product.author.avatar_url}
                       alt={product.author.username}
                       className="w-full h-full object-cover"
+                      loading="lazy"
                     />
                   ) : (
                     <span>

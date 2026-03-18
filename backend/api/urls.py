@@ -10,6 +10,7 @@ from .views import (
     ProductImageDetailView,
     ProductImageUploadView,
     ProductViewSet,
+    WeatherView,
 )
 
 router = DefaultRouter()
@@ -31,9 +32,10 @@ urlpatterns = [
         "products/<str:slug>/images/<int:image_id>/",
         ProductImageDetailView.as_view(),
         name="product_image_detail",
-    ),
-    # LLM
+    ),  # LLM
     path("llm/ask/", AskLLMView.as_view(), name="ask_llm"),
     path("llm/models/", GetAvailableModelsView.as_view(), name="available_models"),
     path("llm/actions/", GetActionsMapView.as_view(), name="actions_map"),
+    # Weather (third-party API)
+    path("weather/", WeatherView.as_view(), name="weather"),
 ]

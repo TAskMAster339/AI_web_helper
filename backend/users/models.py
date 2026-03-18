@@ -15,7 +15,7 @@ class UserProfile(models.Model):
 
     ROLE_CHOICES = (
         ("user", "Обычный пользователь"),
-        ("premium", "Пользователь с подпиской"),  # noqa: RUF001
+        ("premium", "Пользователь с подпиской"),
         ("admin", "Администратор"),
     )
 

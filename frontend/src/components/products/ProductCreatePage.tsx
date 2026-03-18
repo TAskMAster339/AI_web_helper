@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSEO } from '../../hooks/useSEO';
 import { useAuthStore } from '../../store/authStore';
 import { useProductStore } from '../../store/productStore';
 import type { Product } from '../../types/product';
@@ -9,6 +10,8 @@ export default function ProductCreatePage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { categories, fetchCategories, createProduct, isSaving, saveError } = useProductStore();
+
+  useSEO({ title: 'Новый товар', description: 'Создать новый товар в каталоге.', noIndex: true });
 
   useEffect(() => {
     if (!user) {

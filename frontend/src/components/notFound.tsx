@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 
 export default function NotFound() {
+  useSEO({ title: '404 — Страница не найдена', noIndex: true });
+
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
       <div className="max-w-md w-full text-center glass p-10 slide-up">

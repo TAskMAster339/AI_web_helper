@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 import { useAuthStore } from '../store/authStore';
 import GlassConfirmModal from './GlassConfirmModal';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, logout, fetchUser, updateProfile, uploadAvatar, deleteAvatar } = useAuthStore();
+  useSEO({
+    title: 'Личный кабинет',
+    description: 'Управление профилем и настройками.',
+    noIndex: true,
+  });
 
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState('');

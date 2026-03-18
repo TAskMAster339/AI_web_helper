@@ -53,6 +53,7 @@ export interface ProductFilters {
   search?: string;
   status?: string;
   category?: string;
+  category_name?: string;
   min_price?: string;
   max_price?: string;
   in_stock?: string;

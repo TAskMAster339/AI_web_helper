@@ -1,21 +1,28 @@
 import api from '../api/axios';
 import { ROUTES_CONFIG } from '../config/routers';
 
+export type LLMProvider = 'local' | 'external';
+
 export interface ChatMessage {
   id: string;
   question: string;
   answer: string;
   model_name: string;
   timestamp: number;
+  provider: LLMProvider;
 }
 
 export interface LLMResponse {
   question: string;
   action_code?: string;
   action_description?: string;
+  is_fallback?: boolean;
   answer?: string;
+  filters?: Record<string, string | number | boolean>;
+  weather_city?: string;
   mode: 'navigate' | 'chat';
   model: string;
+  provider: LLMProvider;
   error?: string;
   requests_remaining?: number | 'unlimited';
 }
@@ -23,6 +30,7 @@ export interface LLMResponse {
 export interface AskQuestionParams {
   question: string;
   model: string;
+  provider: LLMProvider;
 }
 
 export interface ActionsMap {
@@ -34,26 +42,37 @@ class LLMService {
    * Получить код действия на основе вопроса
    * @param question вопрос пользователя
    * @param model модель LLM
+   * @param provider провайдер LLM
    * @returns объект с кодом и описанием
    */
   async getActionCode(
     question: string,
-    model: string = 'alibayram/smollm3'
+    model: string = 'alibayram/smollm3',
+    provider: LLMProvider = 'local'
   ): Promise<{
     action_code: string;
     action_description: string;
+    is_fallback: boolean;
+    fallback_answer?: string;
+    filters?: Record<string, string | number | boolean>;
+    weather_city?: string;
     requests_remaining?: number | 'unlimited';
   }> {
     try {
       const response = await api.post<LLMResponse>('/llm/ask/', {
-        question: question,
-        model: model,
+        question,
+        model,
         mode: 'navigate',
+        provider,
       });
 
       return {
         action_code: response.data.action_code || '001',
         action_description: response.data.action_description || 'Главная страница',
+        is_fallback: response.data.is_fallback ?? false,
+        fallback_answer: response.data.answer,
+        filters: response.data.filters,
+        weather_city: response.data.weather_city,
         requests_remaining: response.data.requests_remaining,
       };
     } catch (error) {
@@ -87,6 +106,7 @@ class LLMService {
         question: params.question,
         model: params.model,
         mode: 'chat',
+        provider: params.provider,
       });
 
       return response.data.answer || 'Ответ не получен';
@@ -97,16 +117,27 @@ class LLMService {
   }
 
   /**
-   * Получить список доступных моделей
+   * Получить список моделей для заданного провайдера
+   * @param provider провайдер LLM
    * @returns список имён моделей
    */
-  async getAvailableModels(): Promise<string[]> {
+  async getAvailableModels(provider: LLMProvider = 'local'): Promise<string[]> {
     try {
-      const response = await api.get<{ models: string[] }>('/llm/models/');
+      const response = await api.get<{ models: string[] }>('/llm/models/', {
+        params: { provider },
+      });
       return response.data.models || ['alibayram/smollm3'];
     } catch (error) {
       console.error('Error fetching models:', error);
-      return ['alibayram/smollm3'];
+      return provider === 'external'
+        ? [
+            'ai-sage/GigaChat3-10B-A1.8B',
+            'zai-org/GLM-4.7-Flash',
+            'zai-org/GLM-4.7',
+            'Qwen/Qwen3-Coder-Next',
+            't-tech/T-pro-it-2.1',
+          ]
+        : ['alibayram/smollm3'];
     }
   }
 
@@ -114,11 +145,16 @@ class LLMService {
    * Отправить сообщение к LLM для навигации
    * @param message текст сообщения
    * @param model модель LLM
+   * @param provider провайдер LLM
    * @returns путь для навигации или '/'
    */
-  async getNavigationRoute(message: string, model: string = 'alibayram/smollm3'): Promise<string> {
+  async getNavigationRoute(
+    message: string,
+    model: string = 'alibayram/smollm3',
+    provider: LLMProvider = 'local'
+  ): Promise<string> {
     try {
-      const result = await this.getActionCode(message, model);
+      const result = await this.getActionCode(message, model, provider);
       const actionCode = result.action_code || '001';
 
       // Преобразовать код в путь

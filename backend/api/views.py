@@ -17,7 +17,13 @@ from rest_framework.views import APIView
 from users.permissions import CanMakeRequest
 
 from .filters import ProductFilter
-from .llm_service import ACTIONS_MAP, OllamaService
+from .llm_service import (
+    ACTIONS_MAP,
+    CHAT_FALLBACK_CODE,
+    ExternalLLMService,
+    ExternalLLMServiceError,
+    OllamaService,
+)
 from .models import Category, Order, Product, ProductImage
 from .s3_service import delete_file, generate_presigned_url, upload_file
 from .serializers import (
@@ -26,6 +32,7 @@ from .serializers import (
     ProductImageSerializer,
     ProductSerializer,
 )
+from .weather_service import WeatherService, WeatherServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +169,7 @@ class ProductImageUploadView(APIView):
         )
         return product.author == request.user or request.user.is_staff or is_admin
 
-    def post(self, request, slug):  # noqa: PLR0911
+    def post(self, request, slug):
         product = self._get_product(slug)
         if not product:
             return Response(
@@ -265,7 +272,7 @@ class ProductImageDetailView(APIView):
         except Exception as exc:
             logger.exception("Failed to generate presigned URL: %s", exc)
             return Response(
-                {"detail": "Не удалось получить ссылку."},  # noqa: RUF001
+                {"detail": "Не удалось получить ссылку."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         return Response({"url": url, "expires_in": 3600})
@@ -337,87 +344,229 @@ class AskLLMView(APIView):
         question = request.data.get("question", "").strip()
         model = request.data.get("model", "alibayram/smollm3")
         mode = request.data.get("mode", "chat")
-
-        profile = request.user.profile
-        available_models = profile.get_available_models()
-
-        if available_models != "all" and model not in available_models:
-            return Response(
-                {"error": "You don't have access to this model"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        provider = request.data.get("provider", "local")
 
         if not question:
-            return Response(
-                {"error": "Question field is required"},
-                status=status.HTTP_400_BAD_REQUEST,
+            return self._error_response(
+                "Question field is required",
+                status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            if mode == "navigate":
-                action_code = OllamaService.get_action_code(question, model)
-                action_description = ACTIONS_MAP.get(
-                    action_code,
-                    "Неизвестное действие",
-                )
-                profile.increment_requests()
-                return Response(
-                    {
-                        "question": question,
-                        "action_code": action_code,
-                        "action_description": action_description,
-                        "mode": "navigate",
-                        "model": model,
-                        "requests_remaining": (
-                            "unlimited"
-                            if profile.role in ["premium", "admin"]
-                            else profile.daily_requests_limit
-                            - profile.daily_requests_used
-                        ),
-                    },
-                    status=status.HTTP_200_OK,
-                )
+        profile = request.user.profile
+        if provider == "local" and not self._has_model_access(
+            profile,
+            model,
+        ):
+            return self._error_response(
+                "You don't have access to this model",
+                status.HTTP_403_FORBIDDEN,
+            )
 
-            answer = OllamaService.generate_response(question, model)
-            profile.increment_requests()
-            return Response(
-                {
-                    "question": question,
-                    "answer": answer,
-                    "mode": "chat",
-                    "model": model,
-                    "requests_remaining": (
-                        "unlimited"
-                        if profile.role in ["premium", "admin"]
-                        else profile.daily_requests_limit - profile.daily_requests_used
-                    ),
-                },
-                status=status.HTTP_200_OK,
+        svc = ExternalLLMService if provider == "external" else OllamaService
+        try:
+            requests_remaining = self._get_requests_remaining(profile)
+            if mode == "navigate":
+                return self._handle_navigation_mode(
+                    svc,
+                    question,
+                    model,
+                    profile,
+                    requests_remaining,
+                    provider,
+                )
+            return self._handle_chat_mode(
+                svc,
+                question,
+                model,
+                profile,
+                requests_remaining,
+                provider,
+            )
+        except ExternalLLMServiceError as e:
+            logger.warning("External LLM error: %s", e)
+            return self._error_response(
+                f"Внешний LLM недоступен: {e!s}",
+                status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         except Exception as e:
             logger.exception("Ошибка в обработке LLM: %s", e)
-            return Response(
-                {"error": f"LLM processing error: {e!s}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            return self._error_response(
+                f"LLM processing error: {e!s}",
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+    def _error_response(self, message, status_code):
+        return Response({"error": message}, status=status_code)
+
+    def _has_model_access(self, profile, model):
+        available_models = profile.get_available_models()
+        return available_models == "all" or model in available_models
+
+    def _get_requests_remaining(self, profile):
+        is_premium = profile.role in ["premium", "admin"]
+        if is_premium:
+            return "unlimited"
+        return profile.daily_requests_limit - profile.daily_requests_used
+
+    def _handle_navigation_mode(
+        self,
+        svc,
+        question,
+        model,
+        profile,
+        requests_remaining,
+        provider,
+    ):
+        action_code = svc.get_action_code(question, model)
+        if action_code == CHAT_FALLBACK_CODE:
+            return self._generate_fallback_response(
+                svc,
+                question,
+                model,
+                profile,
+                requests_remaining,
+                provider,
+            )
+        filters, weather_city = self._extract_navigation_data(
+            svc,
+            question,
+            model,
+            action_code,
+        )
+        action_description = ACTIONS_MAP.get(
+            action_code,
+            "Неизвестное действие",
+        )
+        profile.increment_requests()
+        return Response(
+            {
+                "question": question,
+                "action_code": action_code,
+                "action_description": action_description,
+                "is_fallback": False,
+                "filters": filters,
+                "weather_city": weather_city,
+                "mode": "navigate",
+                "model": model,
+                "provider": provider,
+                "requests_remaining": requests_remaining,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def _generate_fallback_response(
+        self,
+        svc,
+        question,
+        model,
+        profile,
+        requests_remaining,
+        provider,
+    ):
+        fallback_answer = svc.generate_response(question, model)
+        profile.increment_requests()
+        return Response(
+            {
+                "question": question,
+                "action_code": CHAT_FALLBACK_CODE,
+                "action_description": ACTIONS_MAP.get(
+                    CHAT_FALLBACK_CODE,
+                    "Свободный чат",
+                ),
+                "is_fallback": True,
+                "answer": fallback_answer,
+                "mode": "navigate",
+                "model": model,
+                "provider": provider,
+                "requests_remaining": requests_remaining,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def _extract_navigation_data(self, svc, question, model, action_code):
+        filters, weather_city = {}, None
+        if action_code == "004":
+            filters = self._get_product_filters(svc, question, model)
+        elif action_code == "007":
+            weather_city = self._get_weather_city(svc, question, model)
+        return filters, weather_city
+
+    def _get_product_filters(self, svc, question, model):
+        try:
+            category_names = list(
+                Category.objects.values_list(
+                    "name",
+                    flat=True,
+                ).order_by("name"),
+            )
+            return svc.get_product_filters(
+                question,
+                model,
+                category_names,
+            )
+        except Exception as e:
+            logger.warning("Failed to extract filters: %s", e)
+            return {}
+
+    def _get_weather_city(self, svc, question, model):
+        try:
+            return svc.get_weather_city(question, model)
+        except Exception as e:
+            logger.warning("Failed to extract weather city: %s", e)
+            return "Moscow"
+
+    def _handle_chat_mode(
+        self,
+        svc,
+        question,
+        model,
+        profile,
+        requests_remaining,
+        provider,
+    ):
+        answer = svc.generate_response(question, model)
+        profile.increment_requests()
+        return Response(
+            {
+                "question": question,
+                "answer": answer,
+                "mode": "chat",
+                "model": model,
+                "provider": provider,
+                "requests_remaining": requests_remaining,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class GetAvailableModelsView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
+        provider = request.query_params.get("provider", "local")
         try:
+            if provider == "external":
+                models = ExternalLLMService.list_available_models()
+                return Response(
+                    {"models": models, "provider": "external"},
+                    status=status.HTTP_200_OK,
+                )
+
+            # local
             all_models = OllamaService.list_available_models()
             if hasattr(request.user, "profile"):
                 available_models = request.user.profile.get_available_models()
                 models = all_models if available_models == "all" else available_models
             else:
                 models = ["alibayram/smollm3"]
-            return Response({"models": models}, status=status.HTTP_200_OK)
+            return Response(
+                {"models": models, "provider": "local"},
+                status=status.HTTP_200_OK,
+            )
         except Exception as e:
             logger.exception("Ошибка при получении моделей: %s", e)
             return Response(
-                {"models": ["alibayram/smollm3"]},
+                {"models": ["alibayram/smollm3"], "provider": "local"},
                 status=status.HTTP_200_OK,
             )
 
@@ -427,3 +576,39 @@ class GetActionsMapView(APIView):
 
     def get(self, request):
         return Response({"actions": ACTIONS_MAP}, status=status.HTTP_200_OK)
+
+
+class WeatherView(APIView):
+    """
+    GET /api/weather/?city=Moscow
+    Returns current weather from OpenWeatherMap.
+    Publicly accessible; degrades gracefully when API key is absent.
+    """
+
+    permission_classes = (AllowAny,)
+
+    def get(self, request):
+        city = request.query_params.get("city", "Moscow").strip()
+        if not city:
+            return Response(
+                {"error": "city parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            data = WeatherService.get_weather_with_cache(city)
+            return Response(data, status=status.HTTP_200_OK)
+        except WeatherServiceError as exc:
+            logger.warning("WeatherView error for city=%s: %s", city, exc)
+            return Response(
+                {"error": str(exc), "available": False},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except Exception as exc:
+            logger.exception("Unexpected WeatherView error: %s", exc)
+            return Response(
+                {
+                    "error": "Weather service temporarily unavailable",
+                    "available": False,
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )

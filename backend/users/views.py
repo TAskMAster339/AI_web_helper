@@ -56,7 +56,7 @@ class RegisterView(APIView):
                 fail_silently=False,
             )
             return Response(
-                {"detail": "Письмо с подтверждением отправлено на вашу почту"},  # noqa: RUF001
+                {"detail": "Письмо с подтверждением отправлено на вашу почту"},
                 status=status.HTTP_201_CREATED,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -219,7 +219,7 @@ class PasswordResetView(APIView):
             )
             message = (
                 f"Перейдите по ссылке для восстановления пароля:"
-                f"\n{frontend_url}\n\nСсылка действительна 24 часа."  # noqa: RUF001
+                f"\n{frontend_url}\n\nСсылка действительна 24 часа."
             )
             try:
                 send_mail(
@@ -230,7 +230,7 @@ class PasswordResetView(APIView):
                     fail_silently=False,
                 )
                 return Response(
-                    {"detail": "Письмо с инструкцией отправлено на вашу почту"},  # noqa: RUF001
+                    {"detail": "Письмо с инструкцией отправлено на вашу почту"},
                     status=status.HTTP_200_OK,
                 )
             except Exception as e:

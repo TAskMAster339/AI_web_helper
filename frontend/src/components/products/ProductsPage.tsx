@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useSEO } from '../../hooks/useSEO';
 import { useAuthStore } from '../../store/authStore';
 import { useProductStore } from '../../store/productStore';
 import type { ProductFilters } from '../../types/product';
@@ -13,6 +14,12 @@ const PAGE_SIZE = 10;
 export default function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((s) => s.user);
+
+  useSEO({
+    title: 'Каталог товаров',
+    description:
+      'Просматривайте каталог товаров AI Web Helper. Фильтрация по категориям, цене и наличию.',
+  });
 
   // Select each piece individually so we get stable references
   const products = useProductStore((s) => s.products);
@@ -29,6 +36,7 @@ export default function ProductsPage() {
     search: searchParams.get('search') ?? undefined,
     status: searchParams.get('status') ?? undefined,
     category: searchParams.get('category') ?? undefined,
+    category_name: searchParams.get('category_name') ?? undefined,
     min_price: searchParams.get('min_price') ?? undefined,
     max_price: searchParams.get('max_price') ?? undefined,
     in_stock: searchParams.get('in_stock') ?? undefined,
@@ -38,20 +46,78 @@ export default function ProductsPage() {
 
   const page = Number(filters.page ?? '1');
 
-  // fetchCategories is a stable Zustand ref; categoriesLoaded guard is inside the action
+  // Load categories once (guard is inside the store action)
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
 
-  // Use the serialised string as dependency — a new URLSearchParams object is created
-  // on every render by React Router, so using the object itself would fire on every render.
+  // Serialize URL params once per render — stable primitive dep for the fetch effect.
   const searchParamsString = searchParams.toString();
+
+  // Track whether we are waiting for categories to resolve a `category_name` param.
+  // When true the fetch effect is suppressed; after resolution the URL changes →
+  // searchParamsString changes → fetch effect runs cleanly with the resolved `category` id.
+  const categoryNamePendingRef = useRef(false);
+
+  // Effect 1 — category_name resolver.
+  // Runs only when categories load or the URL changes, converts category_name → id in the URL.
+  // Does NOT call fetchProducts — the URL change will trigger Effect 2.
   useEffect(() => {
-    // Strip undefined/empty keys before fetching
+    const categoryName = searchParams.get('category_name');
+    if (!categoryName) {
+      categoryNamePendingRef.current = false;
+      return;
+    }
+    // Categories not yet loaded — mark as pending and wait for the next run.
+    if (categories.length === 0) {
+      categoryNamePendingRef.current = true;
+      return;
+    }
+    const needle = categoryName.toLowerCase();
+    const match =
+      categories.find((c) => c.name.toLowerCase() === needle) ??
+      categories.find((c) => c.name.toLowerCase().includes(needle));
+
+    categoryNamePendingRef.current = false;
+
+    if (match) {
+      // Swap category_name → category id in the URL (replace so no extra history entry).
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('category_name');
+          next.set('category', String(match.id));
+          return next;
+        },
+        { replace: true }
+      );
+      // fetchProducts will fire via Effect 2 once the URL updates.
+    } else {
+      // Name not found — remove the unresolvable param and fetch without it.
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('category_name');
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [searchParamsString, categories, setSearchParams]);
+
+  // Effect 2 — products fetcher.
+  // Depends only on the serialised URL string, NOT on categories.
+  // Suppressed while category_name resolution is in progress.
+  useEffect(() => {
+    // Skip if we're still waiting for category_name → id resolution.
+    if (categoryNamePendingRef.current || searchParams.get('category_name')) return;
+
     const clean: ProductFilters = {};
     (Object.keys(filters) as (keyof ProductFilters)[]).forEach((k) => {
       if (filters[k]) clean[k] = filters[k];
     });
+    delete clean.category_name; // never a real API param
+
     fetchProducts(clean);
   }, [searchParamsString, fetchProducts]);
 

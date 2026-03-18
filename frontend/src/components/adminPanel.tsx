@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
 import GlassConfirmModal from './GlassConfirmModal';
@@ -179,13 +179,22 @@ const AdminPanel: React.FC = () => {
     setUsageFilter('all');
   };
 
+  const hasFetchedRef = useRef(false);
+
+  // Guard: redirect non-admins. Watch only the role, not the whole user object.
+  const currentRole = currentUser?.profile?.role;
   useEffect(() => {
-    if (!currentUser || currentUser.profile?.role !== 'admin') {
+    if (!currentUser || currentRole !== 'admin') {
       navigate('/');
-      return;
     }
+  }, [currentUser, currentRole, navigate]);
+
+  // Fetch users exactly once when the admin status is confirmed.
+  useEffect(() => {
+    if (currentRole !== 'admin' || hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     fetchUsers();
-  }, [currentUser, navigate]);
+  }, [currentRole]);
 
   const fetchUsers = async () => {
     try {
@@ -414,12 +423,14 @@ const AdminPanel: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <UserAvatar user={user} size="sm" onClick={() => setLightboxUser(user)} />
                         <div>
-                          <div
-                            className="text-sm font-semibold"
+                          <Link
+                            to={`/users/${user.id}`}
+                            className="text-sm font-semibold hover:underline"
                             style={{ color: 'var(--text-primary)' }}
+                            title="Открыть публичный профиль"
                           >
                             {user.username}
-                          </div>
+                          </Link>
                           <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
                             {user.first_name} {user.last_name}
                           </div>
@@ -502,9 +513,14 @@ const AdminPanel: React.FC = () => {
               <div className="flex items-center gap-3">
                 <UserAvatar user={user} size="md" onClick={() => setLightboxUser(user)} />
                 <div>
-                  <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+                  <Link
+                    to={`/users/${user.id}`}
+                    className="text-base font-bold hover:underline"
+                    style={{ color: 'var(--text-primary)' }}
+                    title="Открыть публичный профиль"
+                  >
                     {user.username}
-                  </h3>
+                  </Link>
                   <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                     {user.first_name} {user.last_name}
                   </p>

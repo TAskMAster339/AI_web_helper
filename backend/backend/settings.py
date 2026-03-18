@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "storages",
     "api",
     "users",
+    "seo",
 ]
 
 MIDDLEWARE = [
@@ -173,3 +174,23 @@ MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ===== Third-party API keys =====
+OPENWEATHER_API_KEY = config("OPENWEATHER_API_KEY", default="")
+
+# ===== External LLM: Sber GigaChat via Cloud.ru Foundation Models API =====
+# OpenAI-compatible endpoint — set SBER_API_KEY in .env
+SBER_API_KEY = config("SBER_API_KEY", default="")
+SBER_API_URL = config(
+    "SBER_API_URL",
+    default="https://foundation-models.api.cloud.ru/v1",
+)
+SBER_DEFAULT_MODEL = config(
+    "SBER_DEFAULT_MODEL",
+    default="ai-sage/GigaChat3-10B-A1.8B",
+)
+# Comma-separated list of models shown in the UI
+EXTERNAL_LLM_MODELS = config(
+    "EXTERNAL_LLM_MODELS",
+    default="ai-sage/GigaChat3-10B-A1.8B,zai-org/GLM-4.7-Flash,zai-org/GLM-4.7,Qwen/Qwen3-Coder-Next,t-tech/T-pro-it-2.1",
+)
