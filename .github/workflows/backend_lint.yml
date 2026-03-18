@@ -1,19 +1,29 @@
-name: Lint Check (Backend)
+name: Backend - Lint, Format & Tests
 
 on:
   push:
     branches: [main, dev]
-    paths:
-      - "backend/**"
   pull_request:
     branches: [main, dev]
-    paths:
-      - "backend/**"
 
 jobs:
-  lint:
-    name: Run Ruff lint and format checks
+  lint-and-tests:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
 
     defaults:
       run:
@@ -32,6 +42,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install -r ../requirements.txt
+          pip install -r requirements-test.txt
           pip install ruff
 
       - name: Make Python scripts executable (shebang fix)
@@ -45,3 +57,38 @@ jobs:
       - name: Run Ruff format check
         run: |
           ruff format --check .
+
+      - name: Run unit tests
+        env:
+          DJANGO_SETTINGS_MODULE: backend.settings_test
+        run: |
+          pytest -m unit --cov=api --cov=users --cov-report=xml --cov-report=html -v
+
+      - name: Run integration tests
+        env:
+          DJANGO_SETTINGS_MODULE: backend.settings_test
+        run: |
+          pytest -m integration --cov=api --cov=users --cov-report=xml --cov-report=html -v
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./backend/coverage.xml
+          flags: backend
+          name: codecov-backend
+          fail_ci_if_error: false
+
+      - name: Archive coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: backend/htmlcov/
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINIMUM_GREEN: 80
+          MINIMUM_ORANGE: 60
