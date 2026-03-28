@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Category, Order, OrderItem, Product
+from .models import Category, Order, OrderItem, Product, ProductImage
 
 
 @admin.register(Category)
@@ -33,3 +33,12 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "user__email")
     inlines = (OrderItemInline,)
     date_hierarchy = "created_at"
+
+
+@admin.register(ProductImage)
+class ProductImageAdmin(admin.ModelAdmin):
+    list_display = ("id", "product", "original_filename", "uploaded_by", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("product__title", "original_filename", "uploaded_by__username")
+    raw_id_fields = ("product", "uploaded_by")
+    readonly_fields = ("created_at", "s3_key")
