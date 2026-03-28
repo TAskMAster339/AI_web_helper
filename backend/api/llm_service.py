@@ -6,6 +6,8 @@ from decouple import config
 from ollama import Client
 from openai import OpenAI as _OpenAI
 
+from .circuit_breaker import CircuitBreaker
+
 logger = logging.getLogger(__name__)
 
 OLLAMA_BASE_URL = config("OLLAMA_BASE_URL", default="http://localhost:11434")
@@ -41,6 +43,12 @@ ACTIONS_MAP = {
 
 # Код, который LLM возвращает для свободного чата
 CHAT_FALLBACK_CODE = "000"
+
+ollama_circuit_breaker = CircuitBreaker(
+    failure_threshold=5,
+    recovery_timeout=60,
+    expected_exception=Exception,
+)
 
 
 def build_system_prompt() -> str:
@@ -148,6 +156,19 @@ class OllamaService:
         Returns:
             str: ответ от модели
         """
+        try:
+            return ollama_circuit_breaker.call(
+                OllamaService._generate_response_impl,
+                question,
+                model,
+            )
+        except Exception as e:
+            logger.error("Circuit breaker error: %s", e)
+            return "Ошибка: LLM сервис временно недоступен. Попробуйте позже."
+
+    @staticmethod
+    def _generate_response_impl(question: str, model: str = DEFAULT_MODEL) -> str:
+        """Внутренняя реализация generate_response без circuit breaker."""
         try:
             client = OllamaService.get_client()
 

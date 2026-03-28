@@ -2,13 +2,13 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-COPY ../requirements.txt ./requirements.txt
+COPY requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./backend ./backend
+COPY backend ./backend
 
-COPY ./.env ./.env
+COPY .env ./.env
 
 # Создаем директорию для статики
 RUN mkdir -p /app/backend/staticfiles

@@ -44,6 +44,8 @@ class Product(models.Model):
             models.Index(fields=["slug"]),
             models.Index(fields=["status"]),
             models.Index(fields=["price"]),
+            models.Index(fields=["title", "description"]),
+            models.Index(fields=["-created_at"]),
         )
 
     def __str__(self):

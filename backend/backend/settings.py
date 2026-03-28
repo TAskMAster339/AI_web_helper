@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "django_filters",
     "storages",
+    "drf_spectacular",
     "api",
     "users",
     "seo",
@@ -64,6 +65,15 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+        "user": "1000/day",
+        "llm": "50/hour",
+    },
 }
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
@@ -119,10 +129,17 @@ DATABASES = {
         "PORT": config("DB_PORT", default="5433"),
     },
 }
+REDIS_HOST = config("REDIS_HOST", default="localhost")
+REDIS_PORT = config("REDIS_PORT", default="6379")
+REDIS_DB = config("REDIS_DB", default="0")
+
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "unique-snowflake",
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django.core.cache.backends.redis.RedisCache",
+        },
     },
 }
 
@@ -194,3 +211,14 @@ EXTERNAL_LLM_MODELS = config(
     "EXTERNAL_LLM_MODELS",
     default="ai-sage/GigaChat3-10B-A1.8B,zai-org/GLM-4.7-Flash,zai-org/GLM-4.7,Qwen/Qwen3-Coder-Next,t-tech/T-pro-it-2.1",
 )
+
+# ===== OpenAPI / Swagger =====
+SPECTACULAR_SETTINGS = {
+    "TITLE": "AI Web Helper API",
+    "DESCRIPTION": "Fullstack e-commerce + AI Assistant API",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_SETTINGS": {
+        "persistAuthorization": True,
+    },
+}
