@@ -297,9 +297,18 @@ class ManageUsersView(APIView):
     permission_classes = (IsAdminUser,)
 
     def get(self, request):
+        from rest_framework.pagination import PageNumberPagination
+
+        class CustomPagination(PageNumberPagination):
+            page_size = 20
+            page_size_query_param = "page_size"
+            max_page_size = 100
+
+        paginator = CustomPagination()
         users = User.objects.select_related("profile").all()
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        page = paginator.paginate_queryset(users, request)
+        serializer = UserSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 
 class PublicUserProfileView(APIView):
