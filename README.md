@@ -38,6 +38,13 @@
 
 ---
 
+## 🖼️ Скриншоты
+
+![AI Web Helper — экран 1](screenshots/ai-web-helper-1.png)
+![AI Web Helper — экран 2](screenshots/ai-web-helper-2.png)
+
+---
+
 ## 🚀 Быстрый старт
 
 ### Предварительные требования
@@ -329,9 +336,9 @@ docker-compose up --build -d
 
 ## 📞 Контакты
 
-- **GitHub:** [your-github](https://github.com/your-username)
-- **Email:** your-email@example.com
-- **Issues:** [GitHub Issues](https://github.com/your-username/ai-web-helper/issues)
+- **GitHub:** [your-github](https://github.com/TAskMAster339)
+- **Email:** dimagr3214@example.com
+- **Issues:** [GitHub Issues](https://github.com/TAskMAster339/AI_web_helper/issues)
 
 ---
 
