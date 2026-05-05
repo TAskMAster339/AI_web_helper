@@ -219,3 +219,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Frontend test artifacts (Playwright/Vitest)
+frontend/playwright-report/
+frontend/test-results/
+frontend/coverage/
+frontend/.nyc_output/
+
+# Playwright (in case paths change)
+playwright-report/
+test-results/
+
+# Node
+node_modules/
+
+# Vite cache
+frontend/.vite/

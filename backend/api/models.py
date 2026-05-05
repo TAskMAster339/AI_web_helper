@@ -43,10 +43,39 @@ class Product(models.Model):
         indexes = (
             models.Index(fields=["slug"]),
             models.Index(fields=["status"]),
+            models.Index(fields=["price"]),
         )
 
     def __str__(self):
         return self.title
+
+
+class ProductImage(models.Model):
+    """Image attached to a product, stored in S3/MinIO."""
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="product_images",
+    )
+    # S3 object key (path inside the bucket)
+    s3_key = models.CharField(max_length=512)
+    original_filename = models.CharField(max_length=255)
+    content_type = models.CharField(max_length=100)
+    file_size = models.PositiveIntegerField(help_text="File size in bytes")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"Image {self.original_filename} for {self.product.title}"
 
 
 class Order(models.Model):

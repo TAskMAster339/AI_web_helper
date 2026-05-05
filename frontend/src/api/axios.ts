@@ -1,7 +1,7 @@
 import axios, {
+  AxiosError,
   type AxiosInstance,
   type AxiosRequestConfig,
-  AxiosError,
   type InternalAxiosRequestConfig,
 } from 'axios';
 
@@ -84,10 +84,16 @@ api.interceptors.response.use(
           })
           .catch((err) => Promise.reject(err));
       }
-
       if (originalRequest) {
         (originalRequest as CustomAxiosRequestConfig)._retry = true; // кастомное поле для отслеживания повторного запроса
       }
+
+      const refreshToken = getCookie('refresh_token') || getCookie('refresh');
+      if (!refreshToken) {
+        localStorage.removeItem('access_token');
+        return Promise.reject(new Error('No refresh token available'));
+      }
+
       isRefreshing = true;
       try {
         const response = await api.post('/users/token/refresh/');
@@ -103,7 +109,7 @@ api.interceptors.response.use(
         processQueue(refreshError as AxiosError, null);
         localStorage.removeItem('access_token');
         isRefreshing = false;
-        window.location.href = '/login';
+        // Не делаем редирект здесь — пусть authStore сам обработает состояние
         return Promise.reject(refreshError);
       }
     }

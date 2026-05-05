@@ -1,11 +1,15 @@
+import contextlib
+import logging
 import uuid
 
+from api.s3_service import delete_file, upload_file
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.http import HttpResponseRedirect
 from rest_framework import status
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,13 +17,17 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import PasswordResetToken
+from .permissions import IsAdminUser
 from .serializers import (
     LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetSerializer,
     RegisterSerializer,
+    UpdateProfileSerializer,
     UserSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class RegisterView(APIView):
@@ -28,17 +36,12 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
-            # Создаем пользователя неактивным
             user = serializer.save(is_active=False)
-
             activation_token = str(uuid.uuid4())
-            # Сохраняем токен в кэш
             cache.set(f"activate:{activation_token}", user.id, timeout=60 * 60 * 24)
-
             activation_url = (
                 f"{settings.BACKEND_URL}/api/users/activate/{activation_token}/"
             )
-
             message = (
                 f"Добро пожаловать в AI Web Helper!\n"
                 f"Для активации аккаунта перейдите по ссылке:\n\n"
@@ -52,9 +55,8 @@ class RegisterView(APIView):
                 recipient_list=[user.email],
                 fail_silently=False,
             )
-
             return Response(
-                {"detail": "Письмо с подтверждением отправлено на вашу почту"},  # noqa: RUF001
+                {"detail": "Письмо с подтверждением отправлено на вашу почту"},
                 status=status.HTTP_201_CREATED,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -68,7 +70,6 @@ class LoginView(APIView):
         if serializer.is_valid():
             user = serializer.validated_data["user"]
             refresh = RefreshToken.for_user(user)
-
             response = Response(
                 {
                     "user": UserSerializer(user).data,
@@ -76,19 +77,15 @@ class LoginView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
-
-            # Устанавливаем refresh token в httpOnly cookie
             response.set_cookie(
                 "refresh_token",
                 str(refresh),
                 max_age=settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds(),
                 httponly=True,
-                secure=not settings.DEBUG,  # HTTPS в продакшене
+                secure=not settings.DEBUG,
                 samesite="Lax",
             )
-
             return response
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -119,15 +116,81 @@ class UserDetailView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data)
+        return Response(UserSerializer(request.user).data)
 
-    def put(self, request):
-        serializer = UserSerializer(request.user, data=request.data, partial=True)
+    def patch(self, request):
+        serializer = UpdateProfileSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+        )
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response(UserSerializer(request.user).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request):
+        return self.patch(request)
+
+
+class AvatarUploadView(APIView):
+    """
+    POST   /users/me/avatar/ - upload or replace user avatar
+    DELETE /users/me/avatar/ - remove user avatar
+    """
+
+    permission_classes = (IsAuthenticated,)
+    parser_classes = (MultiPartParser,)
+
+    ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}  # noqa: RUF012
+    MAX_SIZE = 5 * 1024 * 1024  # 5 MB
+
+    def post(self, request):
+        file = request.FILES.get("file")
+        if not file:
+            return Response(
+                {"detail": "Файл не передан."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if file.content_type not in self.ALLOWED_TYPES:
+            return Response(
+                {"detail": "Разрешены только JPEG, PNG, WebP, GIF."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if file.size > self.MAX_SIZE:
+            return Response(
+                {"detail": "Файл слишком большой. Максимум 5 MB."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile = request.user.profile
+
+        if profile.avatar_s3_key:
+            with contextlib.suppress(Exception):
+                delete_file(profile.avatar_s3_key)
+
+        try:
+            s3_key = upload_file(file, file.content_type, file.name)
+        except Exception as exc:
+            logger.exception("Avatar upload failed: %s", exc)
+            return Response(
+                {"detail": "Ошибка загрузки в хранилище."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        profile.avatar_s3_key = s3_key
+        profile.save(update_fields=["avatar_s3_key"])
+        return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        profile = request.user.profile
+        if profile.avatar_s3_key:
+            with contextlib.suppress(Exception):
+                delete_file(profile.avatar_s3_key)
+            profile.avatar_s3_key = ""
+            profile.save(update_fields=["avatar_s3_key"])
+
+        return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
 
 
 class LogoutView(APIView):
@@ -138,19 +201,11 @@ class LogoutView(APIView):
             {"detail": "Successfully logged out"},
             status=status.HTTP_200_OK,
         )
-
-        # Удаляем refresh token cookie при логауте
         response.delete_cookie("refresh_token")
-
         return response
 
 
 class PasswordResetView(APIView):
-    """
-    Эндпоинт для запроса восстановления пароля
-    POST /users/password-reset/ с телом {"email": "user@example.com"}
-    """  # noqa: RUF002
-
     permission_classes = (AllowAny,)
 
     def post(self, request):
@@ -158,20 +213,13 @@ class PasswordResetView(APIView):
         if serializer.is_valid():
             email = serializer.validated_data["email"]
             user = User.objects.get(email=email)
-
-            # Создаем токен восстановления
             reset_token = PasswordResetToken.create_token(user)
-
-            # Формируем ссылку для восстановления пароля
-            # Замените на ваш фронтенд URL
             frontend_url = (
                 f"{settings.FRONTEND_URL}/reset-password?token={reset_token.token}"
             )
-
-            # Отправляем письмо
             message = (
                 f"Перейдите по ссылке для восстановления пароля:"
-                f"\n{frontend_url}\n\nСсылка действительна 24 часа."  # noqa: RUF001
+                f"\n{frontend_url}\n\nСсылка действительна 24 часа."
             )
             try:
                 send_mail(
@@ -182,7 +230,7 @@ class PasswordResetView(APIView):
                     fail_silently=False,
                 )
                 return Response(
-                    {"detail": "Письмо с инструкцией отправлено на вашу почту"},  # noqa: RUF001
+                    {"detail": "Письмо с инструкцией отправлено на вашу почту"},
                     status=status.HTTP_200_OK,
                 )
             except Exception as e:
@@ -190,16 +238,10 @@ class PasswordResetView(APIView):
                     {"detail": f"Ошибка при отправке письма: {e!s}"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PasswordResetConfirmView(APIView):
-    """
-    Эндпоинт для подтверждения восстановления пароля
-    POST /users/password-reset-confirm/ с телом {"token": "...", "password": "..."}
-    """  # noqa: RUF002
-
     permission_classes = (AllowAny,)
 
     def post(self, request):
@@ -210,7 +252,6 @@ class PasswordResetConfirmView(APIView):
                 {"detail": "Пароль успешно изменён"},
                 status=status.HTTP_200_OK,
             )
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -219,23 +260,16 @@ class TokenRefreshView(APIView):
 
     def post(self, request):
         refresh_token = request.COOKIES.get("refresh_token")
-
         if not refresh_token:
             return Response(
                 {"detail": "Refresh token не найден"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-
         try:
             refresh = RefreshToken(refresh_token)
             access_token = str(refresh.access_token)
+            response = Response({"access": access_token}, status=status.HTTP_200_OK)
 
-            response = Response(
-                {"access": access_token},
-                status=status.HTTP_200_OK,
-            )
-
-            # Если включена ротация токенов, обновляем refresh token
             if settings.SIMPLE_JWT.get("ROTATE_REFRESH_TOKENS", False):
                 user_id = refresh.get("user_id")
                 user = User.objects.get(id=user_id)
@@ -250,7 +284,6 @@ class TokenRefreshView(APIView):
                     secure=not settings.DEBUG,
                     samesite="Lax",
                 )
-
         except (TokenError, User.DoesNotExist):
             return Response(
                 {"detail": "Недействительный refresh token"},
@@ -258,3 +291,76 @@ class TokenRefreshView(APIView):
             )
         else:
             return response
+
+
+class ManageUsersView(APIView):
+    permission_classes = (IsAdminUser,)
+
+    def get(self, request):
+        users = User.objects.select_related("profile").all()
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PublicUserProfileView(APIView):
+    """
+    GET /users/<int:user_id>/  — публичный профиль пользователя (доступен всем авторизованным).
+    PATCH /users/<int:user_id>/  — редактирование профиля (только для админа).
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, user_id):
+        try:
+            user = User.objects.select_related("profile").get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Пользователь не найден"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
+
+    def patch(self, request, user_id):
+        if request.user.profile.role != "admin":
+            return Response(
+                {"detail": "Недостаточно прав"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            user = User.objects.select_related("profile").get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Пользователь не найден"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        role = request.data.get("role")
+        if role and role in ["user", "premium", "admin"]:
+            user.profile.role = role
+            user.profile.save(update_fields=["role"])
+        serializer = UpdateProfileSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+        return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
+
+
+class UpdateUserRoleView(APIView):
+    permission_classes = (IsAdminUser,)
+
+    def patch(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Пользователь не найден"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        role = request.data.get("role")
+        if role not in ["user", "premium", "admin"]:
+            return Response(
+                {"detail": "Недопустимая роль"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        profile = user.profile
+        profile.role = role
+        profile.save()
+        return Response(UserSerializer(user).data, status=status.HTTP_200_OK)

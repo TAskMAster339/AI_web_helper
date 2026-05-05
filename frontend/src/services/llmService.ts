@@ -1,6 +1,7 @@
+import api from '../api/axios';
 import { ROUTES_CONFIG } from '../config/routers';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export type LLMProvider = 'local' | 'external';
 
 export interface ChatMessage {
   id: string;
@@ -8,21 +9,28 @@ export interface ChatMessage {
   answer: string;
   model_name: string;
   timestamp: number;
+  provider: LLMProvider;
 }
 
 export interface LLMResponse {
   question: string;
   action_code?: string;
   action_description?: string;
+  is_fallback?: boolean;
   answer?: string;
+  filters?: Record<string, string | number | boolean>;
+  weather_city?: string;
   mode: 'navigate' | 'chat';
   model: string;
+  provider: LLMProvider;
   error?: string;
+  requests_remaining?: number | 'unlimited';
 }
 
 export interface AskQuestionParams {
   question: string;
   model: string;
+  provider: LLMProvider;
 }
 
 export interface ActionsMap {
@@ -34,38 +42,42 @@ class LLMService {
    * Получить код действия на основе вопроса
    * @param question вопрос пользователя
    * @param model модель LLM
+   * @param provider провайдер LLM
    * @returns объект с кодом и описанием
    */
   async getActionCode(
     question: string,
-    model: string = 'alibayram/smollm3'
-  ): Promise<{ action_code: string; action_description: string }> {
+    model: string = 'alibayram/smollm3',
+    provider: LLMProvider = 'local'
+  ): Promise<{
+    action_code: string;
+    action_description: string;
+    is_fallback: boolean;
+    fallback_answer?: string;
+    filters?: Record<string, string | number | boolean>;
+    weather_city?: string;
+    requests_remaining?: number | 'unlimited';
+  }> {
     try {
-      const response = await fetch(`${API_URL}/api/llm/ask/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: question,
-          model: model,
-          mode: 'navigate',
-        }),
+      const response = await api.post<LLMResponse>('/llm/ask/', {
+        question,
+        model,
+        mode: 'navigate',
+        provider,
       });
 
-      if (!response.ok) {
-        console.error('LLM request failed:', response.statusText);
-        return { action_code: '001', action_description: 'Главная страница' };
-      }
-
-      const data: LLMResponse = await response.json();
       return {
-        action_code: data.action_code || '001',
-        action_description: data.action_description || 'Главная страница',
+        action_code: response.data.action_code || '001',
+        action_description: response.data.action_description || 'Главная страница',
+        is_fallback: response.data.is_fallback ?? false,
+        fallback_answer: response.data.answer,
+        filters: response.data.filters,
+        weather_city: response.data.weather_city,
+        requests_remaining: response.data.requests_remaining,
       };
     } catch (error) {
       console.error('Action code fetch error:', error);
-      return { action_code: '001', action_description: 'Главная страница' };
+      throw error;
     }
   }
 
@@ -75,20 +87,8 @@ class LLMService {
    */
   async getActionsMap(): Promise<ActionsMap> {
     try {
-      const response = await fetch(`${API_URL}/api/llm/actions/`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        console.error('Failed to fetch actions map:', response.statusText);
-        return {};
-      }
-
-      const data = await response.json();
-      return data.actions || {};
+      const response = await api.get<{ actions: ActionsMap }>('/llm/actions/');
+      return response.data.actions || {};
     } catch (error) {
       console.error('Actions map fetch error:', error);
       return {};
@@ -102,25 +102,14 @@ class LLMService {
    */
   async askQuestion(params: AskQuestionParams): Promise<string> {
     try {
-      const response = await fetch(`${API_URL}/api/llm/ask/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: params.question,
-          model: params.model,
-          mode: 'chat',
-        }),
+      const response = await api.post<LLMResponse>('/llm/ask/', {
+        question: params.question,
+        model: params.model,
+        mode: 'chat',
+        provider: params.provider,
       });
 
-      if (!response.ok) {
-        console.error('LLM request failed:', response.statusText);
-        return 'Ошибка: Не удалось получить ответ';
-      }
-
-      const data: LLMResponse = await response.json();
-      return data.answer || 'Ответ не получен';
+      return response.data.answer || 'Ответ не получен';
     } catch (error) {
       console.error('LLM Service error:', error);
       throw new Error('Ошибка при обращении к LLM');
@@ -128,28 +117,27 @@ class LLMService {
   }
 
   /**
-   * Получить список доступных моделей
+   * Получить список моделей для заданного провайдера
+   * @param provider провайдер LLM
    * @returns список имён моделей
    */
-  async getAvailableModels(): Promise<string[]> {
+  async getAvailableModels(provider: LLMProvider = 'local'): Promise<string[]> {
     try {
-      const response = await fetch(`${API_URL}/api/llm/models/`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await api.get<{ models: string[] }>('/llm/models/', {
+        params: { provider },
       });
-
-      if (!response.ok) {
-        console.error('Failed to fetch models:', response.statusText);
-        return ['alibayram/smollm3'];
-      }
-
-      const data = await response.json();
-      return data.models || ['alibayram/smollm3'];
+      return response.data.models || ['alibayram/smollm3'];
     } catch (error) {
       console.error('Error fetching models:', error);
-      return ['alibayram/smollm3'];
+      return provider === 'external'
+        ? [
+            'ai-sage/GigaChat3-10B-A1.8B',
+            'zai-org/GLM-4.7-Flash',
+            'zai-org/GLM-4.7',
+            'Qwen/Qwen3-Coder-Next',
+            't-tech/T-pro-it-2.1',
+          ]
+        : ['alibayram/smollm3'];
     }
   }
 
@@ -157,11 +145,16 @@ class LLMService {
    * Отправить сообщение к LLM для навигации
    * @param message текст сообщения
    * @param model модель LLM
+   * @param provider провайдер LLM
    * @returns путь для навигации или '/'
    */
-  async getNavigationRoute(message: string, model: string = 'alibayram/smollm3'): Promise<string> {
+  async getNavigationRoute(
+    message: string,
+    model: string = 'alibayram/smollm3',
+    provider: LLMProvider = 'local'
+  ): Promise<string> {
     try {
-      const result = await this.getActionCode(message, model);
+      const result = await this.getActionCode(message, model, provider);
       const actionCode = result.action_code || '001';
 
       // Преобразовать код в путь

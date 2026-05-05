@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
 import { useAuthStore } from '../store/authStore';
 
 export default function Register() {
   const navigate = useNavigate();
+  useSEO({ title: 'Регистрация', description: 'Создайте аккаунт AI Web Helper.', noIndex: true });
   const { register, isLoading, error } = useAuthStore();
   const [formData, setFormData] = useState({
     username: '',
@@ -15,17 +17,12 @@ export default function Register() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (formError) setFormError('');
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    // Валидация
     if (!formData.username || !formData.email || !formData.password || !formData.password2) {
       setFormError('Заполните все поля');
       return;
@@ -38,10 +35,8 @@ export default function Register() {
       setFormError('Пароль должен быть не менее 8 символов');
       return;
     }
-
     try {
       await register(formData.username, formData.email, formData.password, formData.password2);
-      // после регистрации переход на инфо-страницу с email
       navigate('/register-info', { state: { email: formData.email } });
     } catch (err) {
       console.error('Register error:', err);
@@ -49,69 +44,84 @@ export default function Register() {
   };
 
   return (
-    <div className="max-w-2xl text-center">
-      <h1 className="text-4xl font-bold mb-4">Регистрация</h1>
-      <p className="text-lg mb-6">
-        Создайте новый аккаунт, чтобы пользоваться всеми возможностями AI Web Helper.
-      </p>
-
-      {(error || formError) && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-          {error || formError}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <input
-          type="text"
-          name="username"
-          placeholder="Логин (имя пользователя) — обязательное, уникальное"
-          value={formData.username}
-          onChange={handleChange}
-          disabled={isLoading}
-          className="px-4 py-2 border rounded-lg disabled:opacity-50"
-        />
-        <input
-          type="email"
-          name="email"
-          placeholder="Email — обязательный, уникальный"
-          value={formData.email}
-          onChange={handleChange}
-          disabled={isLoading}
-          className="px-4 py-2 border rounded-lg disabled:opacity-50"
-        />
-        <input
-          type="password"
-          name="password"
-          placeholder="Пароль"
-          value={formData.password}
-          onChange={handleChange}
-          disabled={isLoading}
-          className="px-4 py-2 border rounded-lg disabled:opacity-50"
-        />
-        <input
-          type="password"
-          name="password2"
-          placeholder="Подтвердите пароль"
-          value={formData.password2}
-          onChange={handleChange}
-          disabled={isLoading}
-          className="px-4 py-2 border rounded-lg disabled:opacity-50"
-        />
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="px-5 py-2 border rounded-lg transition link disabled:opacity-50 disabled:cursor-not-allowed"
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-full max-w-md glass p-8 slide-up">
+        <h1
+          className="text-3xl font-bold mb-2 text-center"
+          style={{ color: 'var(--text-primary)' }}
         >
-          {isLoading ? 'Загрузка...' : 'Зарегистрироваться'}
-        </button>
-      </form>
-      <p className="mt-4 text-sm">
-        Уже есть аккаунт?{' '}
-        <Link to="/login" className="text-blue-500 underline">
-          Войти
-        </Link>
-      </p>
+          Регистрация
+        </h1>
+        <p className="text-center mb-6" style={{ color: 'var(--text-muted)' }}>
+          Создайте аккаунт для доступа ко всем возможностям.
+        </p>
+
+        {(error || formError) && (
+          <div
+            className="mb-4 p-3 rounded-lg text-sm font-medium"
+            style={{
+              background: 'var(--error-soft)',
+              border: '1px solid var(--error)',
+              color: 'var(--error)',
+            }}
+          >
+            {error || formError}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <input
+            type="text"
+            name="username"
+            placeholder="Логин (имя пользователя)"
+            value={formData.username}
+            onChange={handleChange}
+            disabled={isLoading}
+          />
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={handleChange}
+            disabled={isLoading}
+          />
+          <input
+            type="password"
+            name="password"
+            placeholder="Пароль (минимум 8 символов)"
+            value={formData.password}
+            onChange={handleChange}
+            disabled={isLoading}
+          />
+          <input
+            type="password"
+            name="password2"
+            placeholder="Подтвердите пароль"
+            value={formData.password2}
+            onChange={handleChange}
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="btn-primary w-full py-2.5 rounded-lg text-sm"
+          >
+            {isLoading ? 'Загрузка...' : 'Зарегистрироваться'}
+          </button>
+        </form>
+
+        <p className="mt-5 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+          Уже есть аккаунт?{' '}
+          <Link
+            to="/login"
+            className="font-medium hover:underline"
+            style={{ color: 'var(--accent)' }}
+          >
+            Войти
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

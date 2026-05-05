@@ -1,5 +1,5 @@
 import { type NavigateFunction } from 'react-router-dom';
-import { actions, type ThemeValue, type RouteValue } from './actions';
+import { actions, type RouteValue, type ThemeValue } from './actions';
 
 /**
  * Тип обработчика действия - может быть синхронной или асинхронной функцией
@@ -35,23 +35,55 @@ const applyRoute = (navigate: NavigateFunction, value: RouteValue) => {
 };
 
 /**
- * Фабрика действий - создает словарь обработчиков,
- * используя заранее объявленные actions (без прямой передачи switchTheme)
+ * Построить URL каталога с фильтрами из LLM-ответа.
+ * Пример: /products?min_price=500&max_price=1000&search=телефон
  */
-export const createActionHandlers = (navigate: NavigateFunction): ActionHandlers => ({
-  // Навигация
+export const buildProductsUrl = (filters?: Record<string, string | number | boolean>): string => {
+  const base = actions.goProducts();
+  if (!filters || Object.keys(filters).length === 0) return base;
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    params.set(key, String(value));
+  }
+  return `${base}?${params.toString()}`;
+};
+
+/**
+ * Построить URL главной страницы с городом для виджета погоды.
+ */
+export const buildWeatherUrl = (city?: string): string => {
+  if (!city) return actions.goHome();
+  return `${actions.goHome()}?city=${encodeURIComponent(city)}`;
+};
+
+/**
+ * Фабрика действий - создает словарь обработчиков.
+ * Для действия '004' принимает опциональные filters из LLM-ответа.
+ * Для действия '007' принимает опциональный weather_city из LLM-ответа.
+ * Для действий '200'/'201' принимает коллбэки управления чатом.
+ */
+export const createActionHandlers = (
+  navigate: NavigateFunction,
+  filters?: Record<string, string | number | boolean>,
+  weatherCity?: string,
+  chatCallbacks?: { closeChat?: () => void; clearChat?: () => void }
+): ActionHandlers => ({
+  // Навигация (только маршруты, доступные авторизованному пользователю)
   '001': () => applyRoute(navigate, actions.goHome()),
-  '002': () => applyRoute(navigate, actions.goLogin()),
-  '003': () => applyRoute(navigate, actions.goRegister()),
-  '004': () => applyRoute(navigate, actions.goDashboard()),
-  '005': () => applyRoute(navigate, actions.goAbout()),
-  '006': () => applyRoute(navigate, actions.goForgotPassword()),
-  '007': () => applyRoute(navigate, actions.goProfile()),
-  '008': () => applyRoute(navigate, actions.goSettings()),
+  '002': () => applyRoute(navigate, actions.goDashboard()),
+  '003': () => applyRoute(navigate, actions.goAbout()),
+  '004': () => navigate(buildProductsUrl(filters)),
+  '005': () => applyRoute(navigate, actions.goProductsNew()),
+  '006': () => applyRoute(navigate, actions.goAdmin()),
+  '007': () => navigate(buildWeatherUrl(weatherCity)),
 
   // Тема
   '100': () => applyTheme(actions.setDarkTheme()),
   '101': () => applyTheme(actions.setLightTheme()),
+
+  // Управление чатом
+  '200': () => chatCallbacks?.closeChat?.(),
+  '201': () => chatCallbacks?.clearChat?.(),
 });
 
 /**

@@ -1,16 +1,13 @@
 export const actions = {
-  // Навигация — только строки маршрутов
+  // Навигация — точные маршруты из App.tsx (только для авторизованных)
   goHome: () => '/',
-
-  goLogin: () => '/login',
-  goRegister: () => '/register',
   goDashboard: () => '/dashboard',
   goAbout: () => '/about',
-  goForgotPassword: () => '/forgot-password',
-  goProfile: () => '/profile',
-  goSettings: () => '/settings',
+  goProducts: () => '/products',
+  goProductsNew: () => '/products/new',
+  goAdmin: () => '/admin',
 
-  // Тема — только строка темы
+  // Тема — строка значения
   setDarkTheme: () => 'dark' as const,
   setLightTheme: () => 'light' as const,
 };

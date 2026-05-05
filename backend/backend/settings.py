@@ -30,8 +30,11 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "rest_framework_simplejwt",
     "corsheaders",
+    "django_filters",
+    "storages",
     "api",
     "users",
+    "seo",
 ]
 
 MIDDLEWARE = [
@@ -56,6 +59,11 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
 }
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
@@ -150,4 +158,39 @@ STATICFILES_DIRS = []
 
 STATIC_HOST = "http://localhost:8000"
 
+# ===== S3 / MinIO Storage =====
+AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default="minioadmin")
+AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default="minioadmin")
+AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="product-images")
+AWS_S3_ENDPOINT_URL = config("AWS_S3_ENDPOINT_URL", default="http://localhost:9000")
+# Public URL used for pre-signed URLs (accessible from browser)
+AWS_S3_PUBLIC_URL = config("AWS_S3_PUBLIC_URL", default="http://localhost:9000")
+AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="")
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+AWS_S3_VERIFY = False
+# File size limit: 10 MB
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ===== Third-party API keys =====
+OPENWEATHER_API_KEY = config("OPENWEATHER_API_KEY", default="")
+
+# ===== External LLM: Sber GigaChat via Cloud.ru Foundation Models API =====
+# OpenAI-compatible endpoint — set SBER_API_KEY in .env
+SBER_API_KEY = config("SBER_API_KEY", default="")
+SBER_API_URL = config(
+    "SBER_API_URL",
+    default="https://foundation-models.api.cloud.ru/v1",
+)
+SBER_DEFAULT_MODEL = config(
+    "SBER_DEFAULT_MODEL",
+    default="ai-sage/GigaChat3-10B-A1.8B",
+)
+# Comma-separated list of models shown in the UI
+EXTERNAL_LLM_MODELS = config(
+    "EXTERNAL_LLM_MODELS",
+    default="ai-sage/GigaChat3-10B-A1.8B,zai-org/GLM-4.7-Flash,zai-org/GLM-4.7,Qwen/Qwen3-Coder-Next,t-tech/T-pro-it-2.1",
+)

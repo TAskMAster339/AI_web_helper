@@ -1,14 +1,83 @@
+from api.s3_service import generate_presigned_url
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
-from .models import PasswordResetToken
+from .models import PasswordResetToken, UserProfile
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    role_display = serializers.CharField(source="get_role_display", read_only=True)
+    can_make_request = serializers.SerializerMethodField()
+    requests_remaining = serializers.SerializerMethodField()
+    available_models = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserProfile
+        fields = (
+            "role",
+            "role_display",
+            "daily_requests_limit",
+            "daily_requests_used",
+            "can_make_request",
+            "requests_remaining",
+            "available_models",
+            "avatar_url",
+        )
+        read_only_fields = (
+            "role",
+            "daily_requests_used",
+            "can_make_request",
+            "requests_remaining",
+            "available_models",
+            "avatar_url",
+        )
+
+    def get_can_make_request(self, obj):
+        return obj.can_make_request()
+
+    def get_requests_remaining(self, obj):
+        if obj.role in ["premium", "admin"]:
+            return "unlimited"
+        obj.reset_daily_requests()
+        return obj.daily_requests_limit - obj.daily_requests_used
+
+    def get_available_models(self, obj):
+        return obj.get_available_models()
+
+    def get_avatar_url(self, obj):
+        if not obj.avatar_s3_key:
+            return None
+        try:
+            return generate_presigned_url(obj.avatar_s3_key, expires_in=3600)
+        except Exception:
+            return None
 
 
 class UserSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer(read_only=True)
+
     class Meta:
         model = User
-        fields = ("id", "username", "email", "first_name", "last_name")
-        read_only_fields = ("id",)
+        fields = ("id", "username", "email", "first_name", "last_name", "profile")
+        read_only_fields = ("id", "username", "email")
+
+
+class UpdateProfileSerializer(serializers.ModelSerializer):
+    """Allows user to update their own editable fields."""
+
+    first_name = serializers.CharField(max_length=150, allow_blank=True, required=False)
+    last_name = serializers.CharField(max_length=150, allow_blank=True, required=False)
+
+    class Meta:
+        model = User
+        fields = ("first_name", "last_name")
+
+    def update(self, instance, validated_data):
+        instance.first_name = validated_data.get("first_name", instance.first_name)
+        instance.last_name = validated_data.get("last_name", instance.last_name)
+        instance.save()
+        return instance
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -38,14 +107,14 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError(
-                "Пользователь с таким логином уже существует",  # noqa: RUF001
+                "Пользователь с таким логином уже существует",
             )
         return value
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError(
-                "Пользователь с таким email уже существует",  # noqa: RUF001
+                "Пользователь с таким email уже существует",
             )
         return value
 
@@ -105,11 +174,11 @@ class PasswordResetSerializer(serializers.Serializer):
     def validate_email(self, value):
         """
         Проверяет, существует ли пользователь с таким email
-        """  # noqa: RUF002
+        """
         try:
             User.objects.get(email=value)
         except User.DoesNotExist:
-            raise serializers.ValidationError("Пользователь с таким email не найден")  # noqa: B904, RUF001
+            raise serializers.ValidationError("Пользователь с таким email не найден")  # noqa: B904
         return value
 
 
